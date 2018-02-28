@@ -36,15 +36,15 @@ View(trial_df)
 sub_df <-
   read_csv("shark_df2.csv")
 View(sub_df)
-sub_df = sub_df %>% as_tibble %>% arrange(id)
+sub_df = sub_df %>% as_tibble %>% arrange(ID)
 
 # check missing data
 missing_ind_chars = aggr(
-  sub_df,
+  sub_df[,45:72],
   col = mdc(1:2),
   numbers = TRUE,
   sortVars = TRUE,
-  labels = names(sub_df),
+  labels = names(sub_df[,45:72]),
   cex.axis = .7,
   gap = 3,
   ylab = c("Proportion of missingness", "Missingness Pattern")
@@ -91,7 +91,7 @@ bdf$persev1lead <- as.factor(bdf$keycode1 == bdf$keycode1_lead)
 bdf$persev2lead <- as.factor(bdf$keycode2 == bdf$keycode2_lead)
 bdf$stay2 <- as.factor(bdf$choice2 == bdf$choice2_lag)
 bdf$stay2lead <- as.factor(bdf$choice2 == bdf$choice2_lead)
-
+bdf$same_planet <- as.factor(bdf$state == bdf$state_lag)
 
 # inspect RTs
 
@@ -107,9 +107,9 @@ bdf$outlier <- bdf$rts1<.2 | bdf$rts2<.2 | bdf$rts1 > 4 | bdf$rts2 > 4
 
 # check for stereotypical responding
 
-ggplot(bdf,aes(x = trial, y = keycode1)) + geom_line() + facet_wrap(~id)
-
-ggplot(bdf,aes(x = trial, y = keycode2)) + geom_line() + facet_wrap(~id)
+# ggplot(bdf,aes(x = trial, y = keycode1)) + geom_line() + facet_wrap(~id)
+# 
+# ggplot(bdf,aes(x = trial, y = keycode2)) + geom_line() + facet_wrap(~id)
 
 
 save(list = "bdf", file = "shark1.RData") 
