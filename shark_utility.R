@@ -254,7 +254,7 @@ shark.ml.proc<-function(bdf=NULL,include.clinical=T,include.lag=T,include.neruop
 
 shark_fsl<-function(dfx=NULL) {
   dfx$Trial<-as.numeric(unlist(lapply(split(dfx$trial,dfx$Run),seq_along)))
-  
+  #
   #Gen QC regressors:
   dfx$QC_OUT<-sample(1:0,length(dfx$Trial),replace = T)
   #Motor   #left is 1 and right is 2
