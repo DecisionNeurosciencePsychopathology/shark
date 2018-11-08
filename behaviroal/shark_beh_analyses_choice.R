@@ -170,30 +170,16 @@ car::Anova(m1_S_1, type = 'III')
 # car::Anova(m1_free, type = 'III')
 
 #Star Model Currently:
-m1 <- glmer(Stay1_lead ~ 
-                   Stay1  + SameKey1_lead + 
-                   Transition * ifReinf * GROUP1245 +
-                   Transition * ifReinf * BlockType +
-                   Transition * GROUP1245 * BlockType +
-                   ifReinf * GROUP1245 * BlockType +
-                   #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
-                   #Transition * ifReinf * BlockType +   #HC Model
-                   + (ifReinf * Transition | ID:Run),
-                 family = binomial(),
-                 data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
-                 glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark)
-car::Anova(m1shark, type = 'III')
 
 m1shark <- glmer(Stay1_lead ~ 
                    Stay1  + SameKey1_lead + 
-                   Transition * ifReinf * GROUP1245 +
-                   Transition * ifReinf * BlockType +
-                   Transition * GROUP1245 * BlockType +
-                   ifReinf * GROUP1245 * BlockType +
-                   #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
+                   # Transition * ifReinf * GROUP1245 +
+                   # Transition * ifReinf * BlockType +
+                   # Transition * GROUP1245 * BlockType +
+                   # ifReinf * GROUP1245 * BlockType +
+                   Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
                    #Transition * ifReinf * BlockType +   #HC Model
-                   + (ifReinf * Transition | ID:Run),
+                   + (ifReinf * Transition | ID/Run),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
