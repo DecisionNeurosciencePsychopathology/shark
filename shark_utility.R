@@ -95,6 +95,7 @@ shark_proc<-function(dfx) {
   dfx$ifSwitchedFree<-getifswitched(dfx$ChoiceFree)
   dfx$ifReinf <- as.factor(as.logical(dfx$won))
   dfx$ifReinf<-factor(dfx$ifReinf,levels=c("TRUE","FALSE"))
+  dfx$RewardType<-plyr::mapvalues(dfx$ifReinf,from = c("TRUE","FALSE"),to = c("Reward","No Reward"))
   dfx$ifSharkBlock <- (dfx$contingency==1 & (dfx$trial %in% c(1:25,51:75))) | (dfx$contingency==2 & (dfx$trial %in% c(26:50,76:100))) 
   dfx$BlockType<-plyr::mapvalues(dfx$ifSharkBlock,from = c("TRUE","FALSE"),to = c("Shark","Baseline"))
   #To ensure sequential order before lag and lead
@@ -261,7 +262,7 @@ shark_fsl<-function(dfx=NULL) {
   dfx$LeftRight1<-plyr::mapvalues(dfx$keycode1,from=(1:2),to=c(-1,1))
   dfx$LeftRight2<-plyr::mapvalues(dfx$keycode2,from=(1:2),to=c(-1,1))
   #Task Variables:
-  dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,0))))
+  dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$SharkBlock_lag<-dplyr::lag(dfx$SharkBlock)
   dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$Tran_lag<-dplyr::lag(dfx$Tran)
@@ -273,6 +274,15 @@ shark_fsl<-function(dfx=NULL) {
   
   dfx$ModelBaseShark<-dfx$Tran * dfx$Reinf * dfx$SharkBlock
   dfx$ModelBase_lagShark<-dfx$ModelBase_lag * dfx$SharkBlock
+  
+  dfx_sp<-split(dfx,dfx$Block)
+  shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
+    if(unique(spx$SharkBlock)==1) {
+      return(data.frame(onset=spx$stim1.ons.ms[1]/1000,
+                        duration=((dfx$stim1.ons.ms[max(spx$trial)+1]-spx$stim1.ons.ms[1])/1000),
+                        run=unique(spx$Run)))} else {return(NULL)}
+  })))
+  shark_dfx$Trial<-1
   
   finalist<-list(Decision1=data.frame(event="Decision1",
                                       onset=dfx$stim1.ons.ms/1000,
@@ -289,6 +299,11 @@ shark_fsl<-function(dfx=NULL) {
                                      duration=1.5,
                                      run=dfx$Run,
                                      trial=dfx$Trial),
+                 SharkBlock=data.frame(event="SharkBlock",
+                                     onset=shark_dfx$onset,
+                                     duration=shark_dfx$duration,
+                                     run=shark_dfx$Run,
+                                     trial=shark_dfx$Trial),
                  QC=data.frame(event="QC",
                                onset=dfx$stim1.ons.ms/1000,
                                duration=dfx$rts1,

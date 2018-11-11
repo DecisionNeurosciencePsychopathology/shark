@@ -173,13 +173,12 @@ car::Anova(m1_S_1, type = 'III')
 
 m1shark <- glmer(Stay1_lead ~ 
                    Stay1  + SameKey1_lead + 
-                   # Transition * ifReinf * GROUP1245 +
-                   # Transition * ifReinf * BlockType +
+                   # Transition * RewardType * GROUP1245 +
+                   # Transition * RewardType * BlockType +
                    # Transition * GROUP1245 * BlockType +
-                   # ifReinf * GROUP1245 * BlockType +
-                   Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
-                   #Transition * ifReinf * BlockType +   #HC Model
-                   + (ifReinf * Transition | ID/Run),
+                   # RewardType * GROUP1245 * BlockType +
+                   Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
+                   + (RewardType * Transition | ID/Run),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
@@ -188,8 +187,8 @@ car::Anova(m1shark, type = 'III')
 
 m1shark_hc <- glmer(Stay1_lead ~  Stay1  + SameKey1_lead +
                    #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
-                   Transition * ifReinf * BlockType +   #HC Model
-                   + (ifReinf * Transition | ID:Run),
+                   Transition * RewardType * BlockType    #HC Model
+                   + (RewardType * Transition | ID:Run),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
@@ -200,12 +199,12 @@ car::Anova(m1shark_hc, type = 'III')
 
 #RT Models:
 rtshark1<-lme4::lmer(formula = scale(rts1_scale_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
-                       # Transition * ifReinf * GROUP1245 +
-                       # Transition * ifReinf * BlockType +
+                       # Transition * RewardType * GROUP1245 +
+                       # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
-                       # ifReinf * GROUP1245 * BlockType +
-                        Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
-                       (1 | ID/Run),REML = F,
+                       # RewardType * GROUP1245 * BlockType +
+                        Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
+                       (RewardType * Transition | ID/Run),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                      control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
                      )
@@ -216,20 +215,20 @@ coefs <- data.frame(coef(summary(rtshark1)))
 coefs$p.z <- round(2 * (1 - pnorm(abs(coefs$t.value))),3)
 coefs
 
-rtshark1<-lme4::lmer(formula = log(rts1_scale_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
-                       # Transition * ifReinf * GROUP1245 +
-                       # Transition * ifReinf * BlockType +
+rtshark1_hc<-lme4::lmer(formula = log(rts1_scale_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
+                       # Transition * RewardType * GROUP1245 +
+                       # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
-                       # ifReinf * GROUP1245 * BlockType +
-                      #  Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
-                       Transition * ifReinf * BlockType +   #HC Model
+                       # RewardType * GROUP1245 * BlockType +
+                      #  Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
+                       Transition * RewardType * BlockType +   #HC Model
                        (1 | ID/Run),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
                      control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
 )
-summary(rtshark1)                      
-car::Anova(rtshark1, type = 'III')
-coefs <- data.frame(coef(summary(rtshark1)))
+summary(rtshark1_hc)                      
+car::Anova(rtshark1_hc, type = 'III')
+coefs <- data.frame(coef(summary(rtshark1_hc)))
 # use normal distribution to approximate p-value
 coefs$p.z <- round(2 * (1 - pnorm(abs(coefs$t.value))),3)
 coefs
@@ -237,13 +236,35 @@ coefs
 # multicollinearity diagnostics
 
 # collinearity checks
-
-
+bdf$Transition<-factor(bdf$Transition,levels = c(""))
+bdf$RewardType<-plyr::mapvalues(bdf$ifReinf,from = c("TRUE","FALSE"),to = c("Reward","No Reward"))
 #Plots
 library(emmeans)
-emmeansx<-emmeans(m1shark,  ~ifReinf*Transition*BlockType | GROUP1245,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
+emmeansx<-emmeans(m1shark,  ~ RewardType*Transition*BlockType |GROUP1245,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
 dfemmeans<-as.data.frame(emmeansx)
-ggplot(data=dfemmeans, aes(x=ifReinf, y=emmean, color=Transition)) + geom_boxplot(aes(
+ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
+  geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
+    #lower = emmean - SE, 
+    #upper = emmean + SE, 
+    #middle = emmean, 
+    ymin = emmean - SE, 
+    ymax = emmean + SE),
+    stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~GROUP1245+BlockType,ncol = 2)
+
+emmeansx<-emmeans(m1shark_hc,  ~RewardType*Transition | BlockType,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+dfemmeans<-as.data.frame(emmeansx)
+ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
+  geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
+  #lower = emmean - SE, 
+  #upper = emmean + SE, 
+  #middle = emmean, 
+  ymin = emmean - SE, 
+  ymax = emmean + SE),
+  stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~BlockType,ncol = 2)
+
+emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+dfemmeans<-as.data.frame(emmeansx)
+ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 
   upper = emmean + SE, 
   middle = emmean, 
@@ -251,19 +272,10 @@ ggplot(data=dfemmeans, aes(x=ifReinf, y=emmean, color=Transition)) + geom_boxplo
   ymax = emmean + 3*SE),
   stat = "identity") + facet_wrap(~GROUP1245+BlockType,ncol = 2)
 
-emmeansx<-emmeans(m1shark_hc,  ~ifReinf*Transition | BlockType,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
-dfemmeans<-as.data.frame(emmeansx)
-ggplot(data=dfemmeans, aes(x=ifReinf, y=emmean, color=Transition)) + geom_boxplot(aes(
-  lower = emmean - SE, 
-  upper = emmean + SE, 
-  middle = emmean, 
-  ymin = emmean - 3*SE, 
-  ymax = emmean + 3*SE),
-  stat = "identity") + facet_wrap(~GROUP1245+BlockType,ncol = 2)
 
-emmeansx_rt<-emmeans(rtshark1,  ~ifReinf*Transition | BlockType ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+emmeansx_rt<-emmeans(rtshark1_hc,  ~RewardType*Transition | BlockType ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
 dfemmeans<-as.data.frame(emmeansx_rt)
-ggplot(data=dfemmeans, aes(x=ifReinf, y=emmean, color=Transition)) + geom_boxplot(aes(
+ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 
   upper = emmean + SE, 
   middle = emmean, 

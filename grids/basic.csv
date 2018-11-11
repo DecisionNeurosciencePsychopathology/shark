@@ -1,14 +1,14 @@
-ename,norm,normargu,valuefrom,modifier,name,style,comment
-Decision1,evtmax_1,NA,Decision1_evt,NA,Decison1_evt,multiply,parametric
-Decision2,evtmax_1,NA,Decision2_evt,NA,Decison2_evt,multiply,taskness
-Feedback,evtmax_1,NA,Feedback_evt,NA,Feedback_evt,multiply,parametric
-Decision1,evtmax_1,NA,Reinf_lag,NA,Feedback_lag_d1,multiply,parametric
-Decision1,evtmax_1,NA,Tran_lag,NA,Transit_lag_d1,multiply,parametric
-Decision1,evtmax_1,NA,ModelBase_lag,NA,Modelbase_lag_d1,multiply,parametric
-Decision1,evtmax_1,NA,ModelBase_lagShark,NA,Modelbase_lagShark_d1,multiply,parametric
-Decision2,evtmax_1,NA,Tran,NA,Transit_d2,multiply,parametric
-Decision2,evtmax_1,NA,Reinf_lag,NA,Feedback_lag_d2,multiply,parametric
-Feedback,evtmax_1,NA,ModelBase,NA,Modelbase_fb,multiply,parametric
-Decision1,evtmax_1,NA,SharkBlock,NA,SharkBlock_d1,multiply,parametric
-Decision2,evtmax_1,NA,SharkBlock,NA,SharkBlock_d2,multiply,parametric
-Feedback,evtmax_1,NA,SharkBlock,NA,SharkBlock_fb,multiply,parametric
+ename,norm,normargu,valuefrom,modifier,name,style,comment,copenum,regions
+Decison1,evtmax_1,NA,Decison1_evt,NA,Decison1_evt,multiply,parametric,1,
+Decison2,evtmax_1,NA,Decison2_evt,NA,Decison2_evt,multiply,taskness,2,
+Feedback,evtmax_1,NA,Feedback_evt,NA,Feedback_evt,multiply,parametric,3,
+Decison1,evtmax_1,NA,Reinf_lag,NA,Feedback_lag_d1,multiply,parametric,4,SFG
+Decison1,evtmax_1,NA,Tran_lag,NA,Transit_lag_d1,multiply,parametric,5,MFG; LOC
+Decison1,evtmax_1,NA,ModelBase_lag,NA,TxF_lag_d1,multiply,parametric,6,
+Decison1,evtmax_1,NA,ModelBase_lagShark,NA,TxF_lagShark_d1,multiply,parametric,7,LOC
+Decison2,evtmax_1,NA,Tran,NA,Transit_d2,multiply,parametric,8,
+Decison2,evtmax_1,NA,Reinf_lag,NA,Feedback_lag_d2,multiply,parametric,9,
+Feedback,evtmax_1,NA,ModelBase,NA,TxF_fb,multiply,parametric,10,
+Decison1,evtmax_1,NA,SharkBlock,NA,SharkBlock_d1,multiply,parametric,11,OC
+Decison2,evtmax_1,NA,SharkBlock,NA,SharkBlock_d2,multiply,parametric,12,LR Thalamus; MFG; Motor
+Feedback,evtmax_1,NA,SharkBlock,NA,SharkBlock_fb,multiply,parametric,13,
