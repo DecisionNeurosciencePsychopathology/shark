@@ -25,12 +25,12 @@ shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
 })
 names(shark_fsl_data)<-as.character(unique(bdf$ID))
 
-argu<-as.environment(list(nprocess=11,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
+argu<-as.environment(list(nprocess=8,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
                           proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
                           gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
                           ssub_outputroot="/Volumes/bek/explore/shark/ssanalysis",
-                          glvl_outputroot="/Volumes/bek/explore/shark/grpanal",
+                          glvl_outputroot="/Volumes/bek/explore/shark/grpanal",centerscaleall=T,
                           templatedir="/Volumes/bek/Newtemplate_may18/fsl_mni152/MNI152_T1_2mm_brain.nii",
                           ssub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_ssfeat_general_adaptive_template_R.fsf",
                           glvl_output="/Volumes/bek/explore/shark/grpanal",ifoverwrite_secondlvl=FALSE,hig_lvl_path_filter=NULL,
@@ -44,7 +44,7 @@ argu$ss_zthreshold<-3.2  #This controls the single subject z threshold (if enabl
 argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabled in template)
 
 #Model Basic Event Mapping;
-argu$model.name<-"basic"
+argu$model.name<-"basic2"
 argu$gridpath<-"/Volumes/bek/explore/scripts/shark/grids/basic.csv"
 #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
 

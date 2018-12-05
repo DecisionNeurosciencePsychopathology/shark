@@ -27,7 +27,7 @@
 ################
 #Shark Data Analysis; Model Free Part
 #setwd(file.path(getwd(),"behaviroal"))
-rootdir = '/Users/jiazhouchen/Box Sync/skinner/data/eprime/shark' 
+rootdir = '/Users/jiazhouchen/Box/skinner/data/eprime/shark' 
 
 library(dplyr)
 #Functions:
@@ -41,14 +41,25 @@ source("shark_utility.R")
 
 shark_ID<-list.dirs(rootdir,full.names = F,recursive = F)
 #This is way too slow, Imma use parallel:
-shark_data<-lapply(shark_ID,function(x) {
+if(file.exists("shark_rawdata.rdata")){
+load("shark_rawdata.rdata")} else {shark_data<-list()}
+shark_ID<-shark_ID[!shark_ID %in% names(shark_data)]
+if(length(shark_ID)>0){
+cl<-parallel::makeForkCluster(nnodes = 4)
+shark_data_new<-parallel::parLapply(cl,shark_ID,function(x) {
   if (length(list.files(file.path(rootdir,x),'*_workspace_ouput.mat'))>0) {
     print(x)
+    tryCatch({
     datain<-R.matlab::readMat(file.path(rootdir,x,list.files(file.path(rootdir,x),'*_workspace_ouput.mat')))
     datain$ID<-x
+    },error=function(e){print(e)})
     return(datain)} else {return(NULL)}
 })
-names(shark_data)<-shark_ID
+parallel::stopCluster(cl)
+names(shark_data_new)<-shark_ID
+shark_data<-c(shark_data,shark_data_new)
+save(shark_data,file = "shark_rawdata.rdata")
+}
 shark_data<-lapply(cleanuplist(shark_data),shark_mat)
 shark_data_proc <- lapply(shark_data,shark_proc)
 
@@ -62,9 +73,10 @@ shark_data_proc <- lapply(shark_data,shark_proc)
 #   points(xj$trial[xj$ifRare],xj$ifRare[xj$ifRare]+0.5,col="blue",pch=20)
 #   dev.off()
 # })
-shark_data_proc_exclude<-lapply(shark_data_proc,shark_exclusion)
+message("Number of subject before clean up: ",length(shark_data_proc))
+shark_data_proc_exclude<-lapply(shark_data_proc,shark_exclusion,missthres=0.15,comreinfstaythres=0.2)
 shark_data_proc_exclude<- cleanuplist(shark_data_proc_exclude)
-
+message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
 
 
 #shark_wP<-lapply(shark_data_proc_exclude,genProbability,condition=c('ifRare','ifReinf'),response=c("ifSwitched1"))
@@ -73,10 +85,6 @@ shark_data_proc_exclude<- cleanuplist(shark_data_proc_exclude)
 #rownames(shark_allP)<-NULL
 
 #shark_switchrate<-sapply(shark_wP,function(x) {(x$p[x$ifWon=="Won" & x$ifSwitched2=="Not_Switched2" & x$ifRare=="Not_Rare"]/x$p[x$ifWon=="Won" & x$ifSwitched2=="Switched2" & x$ifRare=="Not_Rare"])})
-
-
-
-
 
 #############################
 bdf <- do.call(rbind,shark_data_proc_exclude)

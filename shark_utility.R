@@ -155,11 +155,11 @@ shark_proc<-function(dfx) {
   return(dfx)
 }
 
-shark_exclusion<-function(dfx) {
-  p_miss_if<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1)) > 0.15
+shark_exclusion<-function(dfx=NULL, missthres=0.15,comreinfstaythres=0.2) {
+  p_miss_if<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1)) > missthres
   z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
   p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
-  if_com_reinf_stay <- p_com_reinf_stay > 0.2
+  if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
   #p_Inf_if<-(z$p[z$resp==FALSE & z$ifReinf=="Reinf"]) <0.30
   #p_InfxStay_if<-F
   #p_comswit_if <- any(dfx$ID %in% names(shark_switchrate[shark_switchrate<0.75]))
@@ -264,7 +264,7 @@ shark_fsl<-function(dfx=NULL) {
   #Task Variables:
   dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$SharkBlock_lag<-dplyr::lag(dfx$SharkBlock)
-  dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(1,-1))))
+  dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(-1,1))))
   dfx$Tran_lag<-dplyr::lag(dfx$Tran)
   dfx$Reinf<-as.numeric(as.character(plyr::mapvalues(dfx$ifReinf,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$Reinf_lag<-dplyr::lag(dfx$Reinf)
@@ -277,12 +277,14 @@ shark_fsl<-function(dfx=NULL) {
   
   dfx_sp<-split(dfx,dfx$Block)
   shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
-    if(unique(spx$SharkBlock)==1) {
-      return(data.frame(onset=spx$stim1.ons.ms[1]/1000,
-                        duration=((dfx$stim1.ons.ms[max(spx$trial)+1]-spx$stim1.ons.ms[1])/1000),
-                        run=unique(spx$Run)))} else {return(NULL)}
+    sbj<-data.frame(onset=spx$stim1.ons.ms[1]/1000,
+               duration=((spx$rew.ons.ms[length(spx$ID)]-spx$stim1.ons.ms[1])/1000),
+               run=unique(spx$Run))
+    
+     if(unique(spx$SharkBlock)==1) {sbj$type<-1} else {sbj$type<-(-1)}
+      return(sbj)
   })))
-  shark_dfx$Trial<-1
+  shark_dfx$Trial<-rep(1:2,2)
   
   finalist<-list(Decision1=data.frame(event="Decision1",
                                       onset=dfx$stim1.ons.ms/1000,
@@ -302,7 +304,7 @@ shark_fsl<-function(dfx=NULL) {
                  SharkBlock=data.frame(event="SharkBlock",
                                      onset=shark_dfx$onset,
                                      duration=shark_dfx$duration,
-                                     run=shark_dfx$Run,
+                                     run=shark_dfx$run,
                                      trial=shark_dfx$Trial),
                  QC=data.frame(event="QC",
                                onset=dfx$stim1.ons.ms/1000,
@@ -316,7 +318,8 @@ shark_fsl<-function(dfx=NULL) {
   }
   finalist[["allconcat"]]<-ktz
   
-  
-  output<-list(event.list=finalist,output.df=dfx,value=dfx)
+  value<-as.list(dfx)
+  value$SharkBlockValue<-shark_dfx$type
+  output<-list(event.list=finalist,output.df=dfx,value=value)
   return(output)
 }
