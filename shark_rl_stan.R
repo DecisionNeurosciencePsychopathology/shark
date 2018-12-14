@@ -42,15 +42,22 @@ SH_otto_nolapse_l1=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
 assign("SH_otto_nolapse_l1",SH_otto_nolapse_l1,envir = allmodels)
 launch_shinystan(SH_otto_nolapse_l1)
 save(allmodels,file = "stanmodeloutput.rdata")
-########################################################
+############################HC Modeling:############################
 #Bump up the iterations;
 shark_stan_HC<-shark_stan_prep(shark_split_HC)
 SH_otto_nolapse_l1_HC=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
-                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 1,
+                        data=shark_stan_HC,verbose=FALSE,save_warmup=FALSE,
+                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
                         include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
 save(SH_otto_nolapse_l1_HC,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC.rdata")
 launch_shinystan(SH_otto_nolapse_l1_HC)
+################################
+SH_otto_nolapse_l1_HC_wshark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wshark.stan',
+                                  data=shark_stan_HC,verbose=FALSE,save_warmup=FALSE,
+                                  pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                  include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+save(SH_otto_nolapse_l1_HC_wshark,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_wshark.rdata")
+launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wshark)
 ########################################################
 #Investigate:
 stan_outfit<-allmodels$SH_otto_nolapse_l1_HC
@@ -82,14 +89,7 @@ stan_out<-data.frame(ID=shark_stan_HC_HBeta$ID,
 
 stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
 deltas<-shark_extract_delta(nSub = length(shark_split_HC_HBeta),stan_outfit = allmodels$SH_otto_nolapse_l1_HC_HBeta)
-################################
-SH_otto_nolapse_l1_HC_HBeta_wshark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wshark.stan',
-                                 data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
-                                 pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                                 include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-assign("SH_otto_nolapse_l1_HC_HBeta_wshark",SH_otto_nolapse_l1_HC_HBeta_wshark,envir = allmodels)
-save(allmodels,file = "stanmodeloutput.rdata")
-launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wshark)
+
 ################################
 SH_otto_nolapse_l1_HC_HBeta_wgrp=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wgroup.stan',
                                         data=shark_stan,verbose=FALSE,save_warmup=FALSE,

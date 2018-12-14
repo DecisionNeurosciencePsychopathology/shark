@@ -55,9 +55,9 @@ transformed parameters {
   for (S in 1:nS) {  
     for (T in 1:nT) {
       alpha_normal[S,T] = alpha_m + (alpha_s*alpha_raw[S]) + (alpha_m_shark*shark[S,T]);
-      beta_1_MF[S,T] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[S]) + (beta_1_MF_m_shark*shark[S,T]) ;
-      beta_1_MB[S,T] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[S]) + (beta_1_MB_m_shark*shark[S,T]);
-      beta_2[S,T] = beta_2_m + (beta_2_s*beta_2_raw[S]) + (beta_2_m_shark*shark[S,T]);
+      beta_1_MF_normal[S,T] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[S]) + (beta_1_MF_m_shark*shark[S,T]) ;
+      beta_1_MB_normal[S,T] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[S]) + (beta_1_MB_m_shark*shark[S,T]);
+      beta_2_normal[S,T] = beta_2_m + (beta_2_s*beta_2_raw[S]) + (beta_2_m_shark*shark[S,T]);
     }
   }
   alpha = inv_logit(alpha_normal);
@@ -86,9 +86,9 @@ model {
   
   //define priors
   alpha_m ~ normal(0,2.5);
-  beta_1_MF_m ~ normal(0,5);
-  beta_1_MB_m ~ normal(0,5);
-  beta_2_m ~ normal(0,5);
+  beta_1_MF_m ~ normal(0,exp(5));
+  beta_1_MB_m ~ normal(0,exp(5));
+  beta_2_m ~ normal(0,exp(5));
   //lambda_m ~ normal(0,2);
   pers_m ~ normal(0,2.5);
   alpha_s ~ cauchy(0,1);
@@ -98,9 +98,9 @@ model {
   //lambda_s ~ cauchy(0,1);
   pers_s ~ cauchy(0,1);
   alpha_raw ~ normal(0,1);
-  beta_1_MF_raw ~ normal(0,1);
-  beta_1_MB_raw ~ normal(0,1);
-  beta_2_raw ~ normal(0,1);
+  beta_1_MF_raw ~ normal(0,exp(1));
+  beta_1_MB_raw ~ normal(0,exp(1));
+  beta_2_raw ~ normal(0,exp(1));
   //lambda_raw ~ normal(0,1);
   pers_raw ~ normal(0,1);
   
@@ -119,12 +119,12 @@ model {
     for (t in 1:nT) {
       //use if not missing 1st stage choice
       if (missing_choice[s,t,1]==0) {
-        choice[s,t,1] ~ bernoulli_logit(beta_1_MF[s,t]*(Q_TD[2]-Q_TD[1])+beta_1_MB[s,t]*(Q_MB[2]-Q_MB[1])+pers[s]*prev_choice);
+        choice[s,t,1] ~ bernoulli_logit( (beta_1_MF[s,t]*(Q_TD[2]-Q_TD[1])) + (beta_1_MB[s,t]*(Q_MB[2]-Q_MB[1])) +pers[s]*prev_choice);
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1
         
         //use if not missing 2nd stage choice
         if (missing_choice[s,t,2]==0) {
-          choice[s,t,2] ~ bernoulli_logit(beta_2[s,t]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]));
+          choice[s,t,2] ~ bernoulli_logit((beta_2[s,t]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])));
           
           //use if not missing 2nd stage reward
           if (missing_reward[s,t]==0) {
@@ -206,11 +206,11 @@ generated quantities {
     prev_choice=0;
     for (t in 1:nT) {
       if (missing_choice[s,t,1]==0) {
-        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | beta_1_MF[s,t]*(Q_TD[2]-Q_TD[1])+beta_1_MB[s,t]*(Q_MB[2]-Q_MB[1])+pers[s]*prev_choice);
+        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | (beta_1_MF[s,t]*(Q_TD[2]-Q_TD[1]))+(beta_1_MB[s,t]*(Q_MB[2]-Q_MB[1]))+pers[s]*prev_choice);
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1
         
         if (missing_choice[s,t,2]==0) {
-          log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | beta_2[s,t]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]));
+          log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | (beta_2[s,t]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])));
           
           //use if not missing 2nd stage reward
           if (missing_reward[s,t]==0) {
