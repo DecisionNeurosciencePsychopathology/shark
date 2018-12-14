@@ -3,8 +3,8 @@ library(rstan)
 library(shinystan)
 #library(loo)
 rstan_options(auto_write = TRUE)
-options(mc.cores = 2)
-
+options(mc.cores = 4)
+source("shark_utility.R")
 reloaddata<-F
 if(reloaddata){
   source("behaviroal/shark_beh_analyses_import_process.R")
@@ -12,54 +12,111 @@ if(reloaddata){
 
 #The data frame to use is bdf;
 bdfx<-bdf[order(bdf$ID),]
-shark_split<-split(bdfx,bdfx$ID)
+#bdfx<-bdfx[which(bdfx$GROUP1245=="1"),]
+shark_split_all<-split(bdfx,bdfx$ID)
 
-nS=length(shark_split)
-nT=max(sapply(shark_split,nrow))
-shark_stan<-list(
-nS=nS,nT=nT,
-choice=array(0,dim=c(nS,nT,2)),
-state_2=array(0,dim=c(nS,nT)),
-sharkblock=array(0,dim=c(nS,nT)), #we might want to do another layer of the model.... 
-reward=array(0,dim=c(nS,nT)),
-missing_choice=array(0,dim=c(nS,nT,2)),
-missing_reward=array(0,dim=c(nS,nT)),
-ID=array(0,dim=nS)
-)
-for(s in 1:nS) {
-  shark_stan$ID[s]<-names(shark_split[s])
-  dfx<-shark_split[[s]]
-  shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1 -1) #Choice is 0 or 1
-  shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2 -1)
-  shark_stan$state_2[s,1:nrow(dfx)]<-(as.numeric(dfx$Transition=="Rare")+1) #State is 1 or 2
-  shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
-  shark_stan$sharkblock[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
-  #Deal with missing trials;
-  miss_c1<-which(is.na(dfx$choice1))
-  miss_c2<-which(is.na(dfx$choice2))
-  miss_any<-which(dfx$Missed)
-  shark_stan$choice[s,miss_c1,1]=0
-  shark_stan$choice[s,miss_c2,2]=0
-  shark_stan$reward[s,miss_any]=0
-  shark_stan$state_2[s,miss_c2]=1
-  shark_stan$missing_choice[s,miss_c1,1]=1
-  shark_stan$missing_choice[s,miss_c2,2]=1
-  shark_stan$missing_reward[s,miss_any]=1
-  
-  dfx<-NULL
-}
-#Clean up dataset so it will run with vanessa's code first; 
-shark_stan$ID<-NULL;shark_stan$sharkblock<-NULL
+shark_split_HC<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)=="1"})]
+shark_stan<-shark_stan_prep(shark_split_all)
+#Models
+if(file.exists("stanmodeloutput.rdata")){
+  load("stanmodeloutput.rdata")
+} else{allmodels<-new.env()}
 
+
+###Model starts here:
 SH_daw_nolapse_l1=stan(file='stan_scripts/daw_nolapse_lambda1.stan',
-                   data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                   pars=c('lp_','prev_choice','tran_count','tran_type','Q_TD','Q_MB','Q_2','delta_1','delta_2'),
-                   include=FALSE,iter=4000,control=list(adapt_delta=0.99,stepsize=.01))
-print('running new model') 
+                       data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                       pars=c('lp_','prev_choice','tran_count','tran_type','Q_TD','Q_MB','Q_2','delta_1','delta_2'),
+                       include=FALSE,iter=4000,control=list(adapt_delta=0.99,stepsize=.01))
 launch_shinystan(SH_daw_nolapse_l1)
+assign("SH_daw_nolapse_l1",SH_daw_nolapse_l1,envir = allmodels)
+
+save(allmodels,file = "stanmodeloutput.rdata")
 
 
+#Bump up the iterations;
+SH_otto_nolapse_l1=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
+                       data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                       pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                       include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+assign("SH_otto_nolapse_l1",SH_otto_nolapse_l1,envir = allmodels)
+launch_shinystan(SH_otto_nolapse_l1)
+save(allmodels,file = "stanmodeloutput.rdata")
+########################################################
+#Bump up the iterations;
+shark_stan_HC<-shark_stan_prep(shark_split_HC)
+SH_otto_nolapse_l1_HC=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
+                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                        include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+assign("SH_otto_nolapse_l1_HC",SH_otto_nolapse_l1_HC,envir = allmodels)
+launch_shinystan(SH_otto_nolapse_l1_HC)
+save(allmodels,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC.rdata")
+#Investigate:
+stan_outfit<-allmodels$SH_otto_nolapse_l1_HC
+stan_out<-data.frame(ID=shark_stan_HC$ID,
+                     alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MF=summary(stan_outfit,pars=c('beta_1_MF'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MB=summary(stan_outfit,pars=c('beta_1_MB'),probs=c(0.5))$summary[,'50%'],
+                     beta_2=summary(stan_outfit,pars=c('beta_2'),probs=c(0.5))$summary[,'50%'],
+                     pers=summary(stan_outfit,pars=c('pers'),probs=c(0.5))$summary[,'50%'],row.names = NULL)
+stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
+
+#Who are high on beta:
+shark_split_HC_HBeta<-shark_split_all[stan_out$ID[which(stan_out$beta_1_MB>median(stan_out$beta_1_MB))]]
+shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
+SH_otto_nolapse_l1_HC_HBeta=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
+                           data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
+                           pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                           include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+assign("SH_otto_nolapse_l1_HC_HBeta",SH_otto_nolapse_l1_HC_HBeta,envir = allmodels)
+save(allmodels,file = "stanmodeloutput.rdata")
+launch_shinystan(SH_otto_nolapse_l1_HC_HBeta)
+stan_outfit<-allmodels$SH_otto_nolapse_l1_HC_HBeta
+stan_out<-data.frame(ID=shark_stan_HC_HBeta$ID,
+                     alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MF=summary(stan_outfit,pars=c('beta_1_MF'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MB=summary(stan_outfit,pars=c('beta_1_MB'),probs=c(0.5))$summary[,'50%'],
+                     beta_2=summary(stan_outfit,pars=c('beta_2'),probs=c(0.5))$summary[,'50%'],
+                     pers=summary(stan_outfit,pars=c('pers'),probs=c(0.5))$summary[,'50%'],row.names = NULL)
+
+stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
+deltas<-shark_extract_delta(nSub = length(shark_split_HC_HBeta),stan_outfit = allmodels$SH_otto_nolapse_l1_HC_HBeta)
+################################
+SH_otto_nolapse_l1_HC_HBeta_wshark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wshark.stan',
+                                 data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
+                                 pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                 include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+assign("SH_otto_nolapse_l1_HC_HBeta_wshark",SH_otto_nolapse_l1_HC_HBeta_wshark,envir = allmodels)
+save(allmodels,file = "stanmodeloutput.rdata")
+launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wshark)
+################################
+SH_otto_nolapse_l1_HC_HBeta_wgrp=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wgroup.stan',
+                                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                        include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+assign("SH_otto_nolapse_l1_HC_HBeta_wgrp",SH_otto_nolapse_l1_HC_HBeta_wgrp,envir = allmodels)
+save(allmodels,file = "stanmodeloutput.rdata")
+launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wgrp) 
+
+##############STOP FIGURE OUT THE BASE MODEL BEFORE ADVANCING#####################
+SH_otto_nolapse_l1_shark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wshark.stan',
+                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                        include=FALSE,iter=8000,control=list(adapt_delta=0.99,stepsize=.01))
+print('running new model') 
+assign("SH_otto_nolapse_l1_shark",SH_otto_nolapse_l1_shark,envir = allmodels)
+launch_shinystan(SH_otto_nolapse_l1_shark)
+save(allmodels,file = "stanmodeloutput.rdata")
 
 
+SH_otto_nolapse_l1_wShark_grpDiff=stan(file='stan_scripts/otto_nolapse_lambda1_wShark_grp.stan',
+                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
+                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                        include=FALSE,iter=8000,control=list(adapt_delta=0.99,stepsize=.01))
+print('running new model') 
+assign("SH_otto_nolapse_l1_wShark_grpDiff",SH_otto_nolapse_l1_wShark_grpDiff,envir = allmodels)
+launch_shinystan(SH_otto_nolapse_l1_wShark_grpDiff)
+save(allmodels,file = "stanmodeloutput.rdata")
 
 

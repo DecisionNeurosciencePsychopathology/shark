@@ -155,15 +155,32 @@ shark_proc<-function(dfx) {
   return(dfx)
 }
 
-shark_exclusion<-function(dfx=NULL, missthres=0.15,comreinfstaythres=0.2) {
-  p_miss_if<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1)) > missthres
-  z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
-  p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
-  if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
-  #p_Inf_if<-(z$p[z$resp==FALSE & z$ifReinf=="Reinf"]) <0.30
-  #p_InfxStay_if<-F
-  #p_comswit_if <- any(dfx$ID %in% names(shark_switchrate[shark_switchrate<0.75]))
-  if (!p_miss_if | !if_com_reinf_stay) {return(dfx)} else {return(NULL)}
+shark_exclusion<-function(dfx=NULL, missthres=NA,comreinfstaythres=NA,P_staycomreinfchance=NA,returnstats=F) {
+  if(!is.na(missthres)){
+  p_miss<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1))
+  p_miss_if<- p_miss < missthres
+  } else {p_miss_if<-TRUE}
+  
+  if(!is.na(comreinfstaythres)){
+    z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
+    p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
+    if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
+  } else {if_com_reinf_stay<-TRUE}
+  
+ if(!is.na(P_staycomreinfchance)){
+   #Get chance p of stay given common reinf, 
+   p_com_reinf_stay_chance<-pbinom(length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf) & as.logical(dfx$Stay1))), 
+                                   length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))), 0.5)
+   if_chance_comreinfstay <- p_com_reinf_stay_chance > P_staycomreinfchance
+ }else{if_chance_comreinfstay<-TRUE}
+  
+  
+ 
+  
+  
+  if(returnstats){data.frame(p_miss=p_miss,p_comreinfstay=p_com_reinf_stay,p_chancecomreinfstay=p_com_reinf_stay_chance)}else{
+  if (p_miss_if && if_com_reinf_stay && if_chance_comreinfstay) {return(dfx)} else {return(NULL)}
+  }
 }
 
 getdata<-function(scdate,xdata,limt=365,ignorelimt=F) {
@@ -323,3 +340,207 @@ shark_fsl<-function(dfx=NULL) {
   output<-list(event.list=finalist,output.df=dfx,value=value)
   return(output)
 }
+
+shark_stan_prep<-function(shark_split=NULL){
+  nS=length(shark_split)
+  nT=max(sapply(shark_split,nrow))
+  shark_stan<-list(
+    nS=nS,nT=nT,
+    grp_dep=array(0,dim=c(nS)),grp_ide=array(0,dim = c(nS)),grp_att=array(0,dim=c(nS)),
+    choice=array(0,dim=c(nS,nT,2)),
+    state_2=array(0,dim=c(nS,nT)),
+    shark=array(0,dim=c(nS,nT)), 
+    reward=array(0,dim=c(nS,nT)),
+    missing_choice=array(0,dim=c(nS,nT,2)),
+    missing_reward=array(0,dim=c(nS,nT)),
+    ID=array(0,dim=nS)
+  )
+  for(s in 1:nS) {
+    #message(s)
+    dfx<-shark_split[[s]]
+    shark_stan$ID[s]<-unique(as.character(dfx$ID))
+    shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="2")
+    shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="4")
+    shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
+    shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1 -1) #Choice is 0 or 1
+    shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2 -1)
+    shark_stan$state_2[s,1:nrow(dfx)]<-(as.numeric(dfx$Transition=="Rare")+1) #State is 1 or 2
+    shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
+    shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
+    #Deal with missing trials;
+    miss_c1<-which(is.na(dfx$choice1))
+    miss_c2<-which(is.na(dfx$choice2))
+    miss_any<-which(dfx$Missed)
+    shark_stan$choice[s,miss_c1,1]=0
+    shark_stan$choice[s,miss_c2,2]=0
+    shark_stan$reward[s,miss_any]=0
+    shark_stan$state_2[s,miss_c2]=1
+    shark_stan$missing_choice[s,miss_c1,1]=1
+    shark_stan$missing_choice[s,miss_c2,2]=1
+    shark_stan$missing_reward[s,miss_any]=1
+    dfx<-NULL
+  }
+  return(shark_stan)
+}
+
+shark_extract_delta<-function(nSub=11,stan_outfit){
+  deltas<-list(
+    delta_1=array(0,dim = c(nSub,100)),
+    delta_2=array(0,dim = c(nSub,100))
+  )
+  for(d in 1:2){
+    deltaX<-summary(stan_outfit,pars=c(paste0("delta_",d)),probs=c(0.5))$summary[,'50%']
+    for (nx in 1:length(deltaX)) {
+      eval(parse(text = paste0("deltas$",names(deltaX)[nx],"<- deltaX[nx]")))
+    }
+  }
+  deltas<-lapply(deltas, t)
+  return(deltas)
+}
+
+
+sharkStan_getdeltas<-function(standf_output=NULL){
+  nS<-nrow(stan_out)
+  nT<-100
+  Q_TD=array(0,c(2))
+  Q_MB=array(0,c(2))
+  Q_2=array(0,c(2,2))
+  Q_TD=array(0,c(2))
+  tran_type=array(0,c(2))
+  delta_1_all=array(0,c(nS,nT));
+  delta_2_all=array(0,c(nS,nT));
+  Q_TD_all=array(0,c(nS,nT,2));
+  Q_MB_all=array(0,c(nS,nT,2));
+  attach(stan_out)
+  attach(shark_stan)
+  for (s in 1:nS) {
+    for (i in 1:2) {
+      Q_TD[i]=.5;
+      Q_MB[i]=.5;
+      Q_2[1,i]=.5;
+      Q_2[2,i]=.5;
+      tran_type[i]=0;
+    }
+    prev_choice=0;
+    for (t in 1:nT) {
+      if (missing_choice[s,t,1]==0) {
+        #log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | beta_1_MF[s]*(Q_TD[2]-Q_TD[1])+beta_1_MB[s]*(Q_MB[2]-Q_MB[1])+pers[s]*prev_choice);
+        prev_choice = 2*choice[s,t,1]-1; ##1 if choice 2, -1 if choice 1
+        
+        if (missing_choice[s,t,2]==0) {
+          #log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | beta_2[s]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]));
+          
+          ##use if not missing 2nd stage reward
+          if (missing_reward[s,t]==0) {
+            ##prediction errors
+            ##note: choices are 0/1, +1 to make them 1/2 for indexing
+            delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s]-Q_TD[choice[s,t,1]+1]; 
+            delta_2 = reward[s,t]/alpha[s] - Q_2[state_2[s,t],choice[s,t,2]+1];
+            
+            ##update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
+            ## expectation of transition, otherwise update 2nd expectation
+            tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 2 : 1;
+            tran_type[tran_count] = tran_type[tran_count] + 1;
+            
+            ##update chosen values
+            ##Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
+            Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+delta_2);
+            Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
+            
+            
+            ##update unchosen TD & second stage values
+            Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))];
+            Q_2[state_2[s,t],(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_2[state_2[s,t],(ifelse(as.logical(choice[s,t,1]),2,1))];
+            unc_state = ifelse(as.logical(state_2[s,t]-1),2,1);
+            Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
+            Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
+            
+            Q_MB[1] = ifelse((tran_type[1] > tran_type[2]), (.7*max(Q_2[1,1],Q_2[1,2]) + .3*max(Q_2[2,1],Q_2[2,2])) , (.3*max(Q_2[1,1],Q_2[1,2]) + .7*max(Q_2[2,1],Q_2[2,2])) );
+            Q_MB[2] = ifelse((tran_type[1] > tran_type[2]), (.3*max(Q_2[1,1],Q_2[1,2]) + .7*max(Q_2[2,1],Q_2[2,2])) , (.7*max(Q_2[1,1],Q_2[1,2]) + .3*max(Q_2[2,1],Q_2[2,2])) );
+            
+          } ##if missing 2nd stage reward: do nothing
+          
+        } else if (missing_choice[s,t,2]==1||missing_reward[s,t]==1) { ##if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
+          log_lik[s,t,2] = 0;
+          delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
+          Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*delta_1;
+          Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))];
+          Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+          Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+          Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+          Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+          ##MB update of first stage values based on second stage values, so don't change
+          
+        }
+      } else { ##if missing 1st stage choice: decay all TD & 2nd stage values
+        log_lik[s,t,1] = 0;
+        log_lik[s,t,2] = 0;
+        Q_TD[1] = (1-alpha[s])*Q_TD[1];
+        Q_TD[2] = (1-alpha[s])*Q_TD[2];
+        Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+        Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+        Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+        Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+      }
+    
+      delta_1_all[s,t]<-delta_1
+      delta_2_all[s,t]<-delta_2
+      Q_TD_all[s,t,1]<-Q_TD[1]
+      Q_TD_all[s,t,2]<-Q_TD[2]
+      Q_MB_all[s,t,1]<-Q_MB[1]
+      Q_MB_all[s,t,2]<-Q_MB[2]
+      } 
+  }
+  
+  detach(stan_out)
+  detach(shark_stan)
+  
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
