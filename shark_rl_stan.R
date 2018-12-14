@@ -47,11 +47,11 @@ save(allmodels,file = "stanmodeloutput.rdata")
 shark_stan_HC<-shark_stan_prep(shark_split_HC)
 SH_otto_nolapse_l1_HC=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
                         data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 1,
                         include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-assign("SH_otto_nolapse_l1_HC",SH_otto_nolapse_l1_HC,envir = allmodels)
+save(SH_otto_nolapse_l1_HC,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC.rdata")
 launch_shinystan(SH_otto_nolapse_l1_HC)
-save(allmodels,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC.rdata")
+########################################################
 #Investigate:
 stan_outfit<-allmodels$SH_otto_nolapse_l1_HC
 stan_out<-data.frame(ID=shark_stan_HC$ID,
