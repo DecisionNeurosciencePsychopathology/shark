@@ -32,7 +32,7 @@ parameters {
   vector[nS] beta_2_raw;
   //vector[nS] lambda_raw;
   vector[nS] pers_raw;
-  vector[nS] omega_raw;
+  //vector[nS] omega_raw;
 }
 
 transformed parameters {
@@ -52,7 +52,7 @@ transformed parameters {
   
   //vector<lower=0,upper=1>[nS] lambda;
   //vector[nS] lambda_normal;
-  vector[nS] omega;
+  //vector[nS] omega;
   vector[nS] pers;
 
   //create transformed parameters using non-centered parameterization for all
@@ -159,11 +159,11 @@ model {
             
              
              //update unchosen TD & second stage values
-             Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-             Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
+             //Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
+             //Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
              unc_state = (state_2[s,t]-1) ? 1 : 2;
-             Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
-             Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
+             //Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
+             //Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
              
              Q_MB[1] = (tran_type[1] > tran_type[2]) ? (.7*fmax(Q_2[1,1],Q_2[1,2]) + .3*fmax(Q_2[2,1],Q_2[2,2])) : (.3*fmax(Q_2[1,1],Q_2[1,2]) + .7*fmax(Q_2[2,1],Q_2[2,2]));
              Q_MB[2] = (tran_type[1] > tran_type[2]) ? (.3*fmax(Q_2[1,1],Q_2[1,2]) + .7*fmax(Q_2[2,1],Q_2[2,2])) : (.7*fmax(Q_2[1,1],Q_2[1,2]) + .3*fmax(Q_2[2,1],Q_2[2,2]));
@@ -173,36 +173,29 @@ model {
              cur_Q_MB_1 = Q_MB[1];
              cur_Q_MB_2 = Q_MB[2];
               
-            print("Q_TD_1");
-            print(cur_Q_TD_1);
-            print("Q_TD_2");
-            print(cur_Q_TD_2);
-            print("Q_MB_1");
-            print(cur_Q_MB_1);
-            print("Q_MB_2");
-            print(cur_Q_MB_2);
+           
                            
           } //if missing 2nd stage reward: do nothing
           
         } else if (missing_choice[s,t,2]==1||missing_reward[s,t]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
           delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
           Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*delta_1;
-          Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-          Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-          Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-          Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-          Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+          //Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
+          //Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+          //Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+          //Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+          //Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
           //MB update of first stage values based on second stage values, so don't change
 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values & update previous choice
       prev_choice=0;
-      Q_TD[1] = (1-alpha[s])*Q_TD[1];
-      Q_TD[2] = (1-alpha[s])*Q_TD[2];
-      Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-      Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-      Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-      Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+      //Q_TD[1] = (1-alpha[s])*Q_TD[1];
+      //Q_TD[2] = (1-alpha[s])*Q_TD[2];
+      //Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+      //Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+      //Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+      //Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
       }
     }
   }

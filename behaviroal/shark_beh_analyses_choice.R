@@ -5,36 +5,16 @@ library(readr)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(tibble)
-library(xtable)
-library(Hmisc)
-library(nnet)
 library(reshape2)
 library(ggbiplot)
 library(corrplot)
 library(lsmeans)
-library(factoextra)
 library(ggfortify)
 library(compareGroups)
 library(RColorBrewer)
 library(MASS)
 library(effects)
-library(readr)
 library(VIM)
-library(mice)
-library(multcompView)
-library(stargazer)
-library(readr)
-library(lme4)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(tibble)
-library(compareGroups)
-library(RColorBrewer)
-library(effects)
 library(multcompView)
 library(stargazer)
 
@@ -173,11 +153,11 @@ car::Anova(m1_S_1, type = 'III')
 
 m1shark <- glmer(Stay1_lead ~ 
                    Stay1  + SameKey1_lead + 
-                   # Transition * RewardType * GROUP1245 +
-                   # Transition * RewardType * BlockType +
-                   # Transition * GROUP1245 * BlockType +
-                   # RewardType * GROUP1245 * BlockType +
-                   Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
+                   Transition * RewardType * GROUP1245 +
+                   Transition * RewardType * BlockType +
+                   Transition * GROUP1245 * BlockType +
+                   RewardType * GROUP1245 * BlockType +
+                   #Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
                    + (RewardType * Transition | ID/Run),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
@@ -188,13 +168,16 @@ car::Anova(m1shark, type = 'III')
 m1shark_hc <- glmer(Stay1_lead ~  Stay1  + SameKey1_lead +
                    #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
                    Transition * RewardType * BlockType    #HC Model
-                   + (RewardType * Transition | ID:Run),
+                   + (RewardType * Transition | ID),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(m1shark_hc)
 car::Anova(m1shark_hc, type = 'III')
 
+coef_shark_hc<-coef(m1shark_hc)$ID
+shark_coef_hc<-as.data.frame(as.matrix(coef_shark_hc))
+high_mb_hc<-rownames(shark_coef_hc)[which(shark_coef_hc$`RewardTypeNo Reward:TransitionRare` > median(shark_coef_hc$`RewardTypeNo Reward:TransitionRare`))]
 ###################
 
 #RT Models:
