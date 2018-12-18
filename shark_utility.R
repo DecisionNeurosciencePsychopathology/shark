@@ -383,164 +383,18 @@ shark_stan_prep<-function(shark_split=NULL){
   return(shark_stan)
 }
 
-shark_extract_delta<-function(nSub=11,stan_outfit){
-  deltas<-list(
-    delta_1=array(0,dim = c(nSub,100)),
-    delta_2=array(0,dim = c(nSub,100))
-  )
-  for(d in 1:2){
-    deltaX<-summary(stan_outfit,pars=c(paste0("delta_",d)),probs=c(0.5))$summary[,'50%']
-    for (nx in 1:length(deltaX)) {
-      eval(parse(text = paste0("deltas$",names(deltaX)[nx],"<- deltaX[nx]")))
-    }
-  }
-  deltas<-lapply(deltas, t)
-  return(deltas)
+run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,
+                         savepath="stan_scripts/stan_output",pars=NULL,iter=NULL,chains=NULL,open_shinystan=F){
+  if(stan_args=="default"){stan_arg<-list(verbose=FALSE,save_warmup=FALSE,
+                                          pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                          include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))}else{stan_arg<-stan_args}
+  if(!is.null(pars)){stan_arg$pars<-pars}; if(!is.null(iter)){stan_arg$iter<-iter}; if(!is.null(chains)){stan_arg$chains<-chains}; 
+  if(is.null(stan_arg$file)){ if(!is.null(stanfile)){stan_arg$file<-stanfile} else {stop("No stan script specified")} };
+  if(is.null(stan_arg$data)){ if(!is.null(data_list)){stan_arg$data<-data_list} else {stop("No data list specified")} };
+  if(is.null(savepath)){savepath<-getwd()}; if(is.null(modelname)){modelname<-paste0("shark_stan",runif(1, 1, 99999))}
+  Sh_stanout=do.call(stan,stan_arg)
+  save(Sh_stanout,file = file.path(savepath,paste0(modelname,".rdata")))
+  if(assignresult){assign(x = modelname,pos = Sh_stanout,envir = .GlobalEnv)}else{return(Sh_stanout)}
+  if(open_shinystan){launch_shinystan(Sh_stanout)}
 }
-
-
-sharkStan_getdeltas<-function(standf_output=NULL){
-  nS<-nrow(stan_out)
-  nT<-100
-  Q_TD=array(0,c(2))
-  Q_MB=array(0,c(2))
-  Q_2=array(0,c(2,2))
-  Q_TD=array(0,c(2))
-  tran_type=array(0,c(2))
-  delta_1_all=array(0,c(nS,nT));
-  delta_2_all=array(0,c(nS,nT));
-  Q_TD_all=array(0,c(nS,nT,2));
-  Q_MB_all=array(0,c(nS,nT,2));
-  attach(stan_out)
-  attach(shark_stan)
-  for (s in 1:nS) {
-    for (i in 1:2) {
-      Q_TD[i]=.5;
-      Q_MB[i]=.5;
-      Q_2[1,i]=.5;
-      Q_2[2,i]=.5;
-      tran_type[i]=0;
-    }
-    prev_choice=0;
-    for (t in 1:nT) {
-      if (missing_choice[s,t,1]==0) {
-        #log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | beta_1_MF[s]*(Q_TD[2]-Q_TD[1])+beta_1_MB[s]*(Q_MB[2]-Q_MB[1])+pers[s]*prev_choice);
-        prev_choice = 2*choice[s,t,1]-1; ##1 if choice 2, -1 if choice 1
-        
-        if (missing_choice[s,t,2]==0) {
-          #log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | beta_2[s]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]));
-          
-          ##use if not missing 2nd stage reward
-          if (missing_reward[s,t]==0) {
-            ##prediction errors
-            ##note: choices are 0/1, +1 to make them 1/2 for indexing
-            delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s]-Q_TD[choice[s,t,1]+1]; 
-            delta_2 = reward[s,t]/alpha[s] - Q_2[state_2[s,t],choice[s,t,2]+1];
-            
-            ##update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
-            ## expectation of transition, otherwise update 2nd expectation
-            tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 2 : 1;
-            tran_type[tran_count] = tran_type[tran_count] + 1;
-            
-            ##update chosen values
-            ##Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-            Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+delta_2);
-            Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
-            
-            
-            ##update unchosen TD & second stage values
-            Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))];
-            Q_2[state_2[s,t],(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_2[state_2[s,t],(ifelse(as.logical(choice[s,t,1]),2,1))];
-            unc_state = ifelse(as.logical(state_2[s,t]-1),2,1);
-            Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
-            Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
-            
-            Q_MB[1] = ifelse((tran_type[1] > tran_type[2]), (.7*max(Q_2[1,1],Q_2[1,2]) + .3*max(Q_2[2,1],Q_2[2,2])) , (.3*max(Q_2[1,1],Q_2[1,2]) + .7*max(Q_2[2,1],Q_2[2,2])) );
-            Q_MB[2] = ifelse((tran_type[1] > tran_type[2]), (.3*max(Q_2[1,1],Q_2[1,2]) + .7*max(Q_2[2,1],Q_2[2,2])) , (.7*max(Q_2[1,1],Q_2[1,2]) + .3*max(Q_2[2,1],Q_2[2,2])) );
-            
-          } ##if missing 2nd stage reward: do nothing
-          
-        } else if (missing_choice[s,t,2]==1||missing_reward[s,t]==1) { ##if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
-          log_lik[s,t,2] = 0;
-          delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
-          Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*delta_1;
-          Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))] = (1-alpha[s])*Q_TD[(ifelse(as.logical(choice[s,t,1]),2,1))];
-          Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-          Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-          Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-          Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
-          ##MB update of first stage values based on second stage values, so don't change
-          
-        }
-      } else { ##if missing 1st stage choice: decay all TD & 2nd stage values
-        log_lik[s,t,1] = 0;
-        log_lik[s,t,2] = 0;
-        Q_TD[1] = (1-alpha[s])*Q_TD[1];
-        Q_TD[2] = (1-alpha[s])*Q_TD[2];
-        Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-        Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-        Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-        Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
-      }
-    
-      delta_1_all[s,t]<-delta_1
-      delta_2_all[s,t]<-delta_2
-      Q_TD_all[s,t,1]<-Q_TD[1]
-      Q_TD_all[s,t,2]<-Q_TD[2]
-      Q_MB_all[s,t,1]<-Q_MB[1]
-      Q_MB_all[s,t,2]<-Q_MB[2]
-      } 
-  }
-  
-  detach(stan_out)
-  detach(shark_stan)
-  
-  
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -58,8 +58,8 @@ SH_otto_nolapse_l1_HC_wshark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_
                                   include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
 save(SH_otto_nolapse_l1_HC_wshark,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_wshark.rdata")
 launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wshark)
-########################################################
-#Investigate:
+##################Investigate:#######################################
+#Only the Healthy Controls
 stan_outfit<-allmodels$SH_otto_nolapse_l1_HC
 stan_out<-data.frame(ID=shark_stan_HC$ID,
                      alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
@@ -73,46 +73,21 @@ stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
 shark_split_HC_HBeta<-shark_split_all[high_mb_hc]
 shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
 SH_otto_nolapse_l1_HC_HBeta=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
-                           data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
-                           pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                           include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-save(SH_otto_nolapse_l1_HC_HBeta,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_HBeta.rdata")
-launch_shinystan(SH_otto_nolapse_l1_HC_HBeta)
-
-shark_split_HC_HBeta<-shark_split_all[high_mb_hc]
-shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
-SH_otto_nolapse_l1_HC_HBeta=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
                                  data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
                                  pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
                                  include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
 save(SH_otto_nolapse_l1_HC_HBeta,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_HBeta.rdata")
 launch_shinystan(SH_otto_nolapse_l1_HC_HBeta)
 
+#Alll Together now!
 coef_shark<-coef(m1shark)$ID
 high_MB_all<-rownames(coef_shark)[which(coef_shark$`RewardTypeNo Reward:TransitionRare` > 0.55)]
-
-
 shark_split_MB_all<-shark_split_all[high_MB_all]
 shark_stan_MB_all<-shark_stan_prep(shark_split_MB_all)
-sink(file = "output.text")
-SH_otto_nolapse_l1_MB_all=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
-                                 data=shark_stan_MB_all,verbose=FALSE,save_warmup=FALSE,
-                                 pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                                 include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-save(SH_otto_nolapse_l1_MB_all,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_MB_all.rdata")
-launch_shinystan(SH_otto_nolapse_l1_MB_all)
+run_shark_stan(data_list=shark_stan_MB_all,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_nodecay.stan',
+               modelname="SH_otto_nolapse_l1_MB_nodecay",stan_args="default",assignresult=T,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
 
-
-stan_outfit<-allmodels$SH_otto_nolapse_l1_HC_HBeta
-stan_out<-data.frame(ID=shark_stan_HC_HBeta$ID,
-                     alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
-                     beta_1_MF=summary(stan_outfit,pars=c('beta_1_MF'),probs=c(0.5))$summary[,'50%'],
-                     beta_1_MB=summary(stan_outfit,pars=c('beta_1_MB'),probs=c(0.5))$summary[,'50%'],
-                     beta_2=summary(stan_outfit,pars=c('beta_2'),probs=c(0.5))$summary[,'50%'],
-                     pers=summary(stan_outfit,pars=c('pers'),probs=c(0.5))$summary[,'50%'],row.names = NULL)
-
-stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
-deltas<-shark_extract_delta(nSub = length(shark_split_HC_HBeta),stan_outfit = allmodels$SH_otto_nolapse_l1_HC_HBeta)
 
 ################################
 SH_otto_nolapse_l1_HC_HBeta_wgrp=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wgroup.stan',
