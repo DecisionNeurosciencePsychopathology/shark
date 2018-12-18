@@ -18,9 +18,9 @@ shark_split_all<-split(bdfx,bdfx$ID)
 shark_split_HC<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)=="1"})]
 shark_stan<-shark_stan_prep(shark_split_all)
 #Models
-if(file.exists("stanmodeloutput.rdata")){
-  load("stanmodeloutput.rdata")
-} else{allmodels<-new.env()}
+# if(file.exists("stanmodeloutput.rdata")){
+#   load("stanmodeloutput.rdata")
+# } else{allmodels<-new.env()}
 
 
 ###Model starts here:
@@ -70,15 +70,39 @@ stan_out<-data.frame(ID=shark_stan_HC$ID,
 stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
 
 #Who are high on beta:
-shark_split_HC_HBeta<-shark_split_all[stan_out$ID[which(stan_out$beta_1_MB>median(stan_out$beta_1_MB))]]
+shark_split_HC_HBeta<-shark_split_all[high_mb_hc]
 shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
 SH_otto_nolapse_l1_HC_HBeta=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
                            data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
                            pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
                            include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-assign("SH_otto_nolapse_l1_HC_HBeta",SH_otto_nolapse_l1_HC_HBeta,envir = allmodels)
-save(allmodels,file = "stanmodeloutput.rdata")
+save(SH_otto_nolapse_l1_HC_HBeta,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_HBeta.rdata")
 launch_shinystan(SH_otto_nolapse_l1_HC_HBeta)
+
+shark_split_HC_HBeta<-shark_split_all[high_mb_hc]
+shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
+SH_otto_nolapse_l1_HC_HBeta=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
+                                 data=shark_stan_HC_HBeta,verbose=FALSE,save_warmup=FALSE,
+                                 pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                 include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+save(SH_otto_nolapse_l1_HC_HBeta,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_HC_HBeta.rdata")
+launch_shinystan(SH_otto_nolapse_l1_HC_HBeta)
+
+coef_shark<-coef(m1shark)$ID
+high_MB_all<-rownames(coef_shark)[which(coef_shark$`RewardTypeNo Reward:TransitionRare` > 0.55)]
+
+
+shark_split_MB_all<-shark_split_all[high_MB_all]
+shark_stan_MB_all<-shark_stan_prep(shark_split_MB_all)
+sink(file = "output.text")
+SH_otto_nolapse_l1_MB_all=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
+                                 data=shark_stan_MB_all,verbose=FALSE,save_warmup=FALSE,
+                                 pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
+                                 include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
+save(SH_otto_nolapse_l1_MB_all,file = "stan_scripts/stan_output/SH_otto_nolapse_l1_MB_all.rdata")
+launch_shinystan(SH_otto_nolapse_l1_MB_all)
+
+
 stan_outfit<-allmodels$SH_otto_nolapse_l1_HC_HBeta
 stan_out<-data.frame(ID=shark_stan_HC_HBeta$ID,
                      alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],

@@ -362,8 +362,8 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="2")
     shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="4")
     shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
-    shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1 -1) #Choice is 0 or 1
-    shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2 -1)
+    shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1)-1 #Choice is 0 or 1
+    shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2)-1
     shark_stan$state_2[s,1:nrow(dfx)]<-(as.numeric(dfx$Transition=="Rare")+1) #State is 1 or 2
     shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
     shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
