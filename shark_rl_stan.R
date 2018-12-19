@@ -87,9 +87,44 @@ shark_stan_MB_all<-shark_stan_prep(shark_split_MB_all)
 run_shark_stan(data_list=shark_stan_MB_all,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_nodecay.stan',
                modelname="SH_otto_nolapse_l1_MB_nodecay",stan_args="default",assignresult=T,
                savepath="stan_scripts/stan_output",open_shinystan=T)
+stan_outfit<-SH_otto_nolapse_l1_MB_nodecay
+stan_out<-data.frame(ID=shark_stan_MB_all$ID,
+                     alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MF=summary(stan_outfit,pars=c('beta_1_MF'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MB=summary(stan_outfit,pars=c('beta_1_MB'),probs=c(0.5))$summary[,'50%'],
+                     beta_2=summary(stan_outfit,pars=c('beta_2'),probs=c(0.5))$summary[,'50%'],
+                     pers=summary(stan_outfit,pars=c('pers'),probs=c(0.5))$summary[,'50%'],row.names = NULL)
+stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
+
+####Let's take out pers too;
+run_shark_stan(data_list=shark_stan_MB_all,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_nodecay_nopers.stan',
+               modelname="SH_otto_nolapse_l1_MB_nodecay_nopers",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
+#####Re-try the original with the model cleaned up; 
+shark_stan_all<-shark_stan_prep(shark_split = shark_split_all)
+run_shark_stan(data_list=shark_stan_all,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_all",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
+stan_outfit<-SH_otto_nolapse_l1_all
+stan_out<-data.frame(ID=shark_stan_all$ID,
+                     alpha=summary(stan_outfit,pars=c('alpha'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MF=summary(stan_outfit,pars=c('beta_1_MF'),probs=c(0.5))$summary[,'50%'],
+                     beta_1_MB=summary(stan_outfit,pars=c('beta_1_MB'),probs=c(0.5))$summary[,'50%'],
+                     beta_2=summary(stan_outfit,pars=c('beta_2'),probs=c(0.5))$summary[,'50%'],
+                     pers=summary(stan_outfit,pars=c('pers'),probs=c(0.5))$summary[,'50%'],row.names = NULL)
+stan_out$GROUP<-as.character(bdf$GROUP1245[match(stan_out$ID,bdf$ID)])
+low_pers<-stan_out$ID[which(abs(stan_out$pers) < 0.15)]
+#####We now look into people who are low on perseveration 
+shark_stan_lowpers<-shark_stan_prep(shark_split = shark_split_all[low_pers])
+run_shark_stan(data_list=shark_stan_lowpers,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_lowpers",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
 
 
-################################
+
+
+
+#############OLDER MODELS###################
 SH_otto_nolapse_l1_HC_HBeta_wgrp=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wgroup.stan',
                                         data=shark_stan,verbose=FALSE,save_warmup=FALSE,
                                         pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,

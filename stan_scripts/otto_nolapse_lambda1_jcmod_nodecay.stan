@@ -131,7 +131,7 @@ model {
         //pirint(beta_1_MF[s,t]);
         choice[s,t,1] ~ bernoulli_logit( 
           
-          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s])+(pers[s]*prev_choice)
+          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s]) +(pers[s]*prev_choice)
           
           );
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1

@@ -368,22 +368,22 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
     shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
     #Deal with missing trials;
-    miss_c1<-which(is.na(dfx$choice1))
-    miss_c2<-which(is.na(dfx$choice2))
-    miss_any<-which(dfx$Missed)
+    miss_c1<-which(is.na(dfx$choice1) | dfx$rts1 > 4 | dfx$rts1 < 0.2)
+    miss_c2<-which(is.na(dfx$choice2) | dfx$rts2 > 4 | dfx$rts2 < 0.2)
+    #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0
-    shark_stan$reward[s,miss_any]=0
+    #shark_stan$reward[s,miss_any]=0
     shark_stan$state_2[s,miss_c2]=1
     shark_stan$missing_choice[s,miss_c1,1]=1
     shark_stan$missing_choice[s,miss_c2,2]=1
-    shark_stan$missing_reward[s,miss_any]=1
+    #shark_stan$missing_reward[s,miss_any]=1
     dfx<-NULL
   }
   return(shark_stan)
 }
 
-run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,
+run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,add_args=NULL,add_data=NULL,
                          savepath="stan_scripts/stan_output",pars=NULL,iter=NULL,chains=NULL,open_shinystan=F){
   if(stan_args=="default"){stan_arg<-list(verbose=FALSE,save_warmup=FALSE,
                                           pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
@@ -391,10 +391,18 @@ run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="
   if(!is.null(pars)){stan_arg$pars<-pars}; if(!is.null(iter)){stan_arg$iter<-iter}; if(!is.null(chains)){stan_arg$chains<-chains}; 
   if(is.null(stan_arg$file)){ if(!is.null(stanfile)){stan_arg$file<-stanfile} else {stop("No stan script specified")} };
   if(is.null(stan_arg$data)){ if(!is.null(data_list)){stan_arg$data<-data_list} else {stop("No data list specified")} };
+  if(!is.null(add_data)){stan_arg$data=c(stan_arg$data,add_data)}; if(!is.null(add_args)){stan_arg<-c(stan_arg,add_args)}
   if(is.null(savepath)){savepath<-getwd()}; if(is.null(modelname)){modelname<-paste0("shark_stan",runif(1, 1, 99999))}
-  Sh_stanout=do.call(stan,stan_arg)
-  save(Sh_stanout,file = file.path(savepath,paste0(modelname,".rdata")))
-  if(assignresult){assign(x = modelname,pos = Sh_stanout,envir = .GlobalEnv)}else{return(Sh_stanout)}
-  if(open_shinystan){launch_shinystan(Sh_stanout)}
+  
+  #Protect against new updates:
+  if(is.null(stan_arg$data$factorizedecay)){is.null(stan_arg$data$factorizedecay)<-0}
+  templs<-list()
+  message("Start Running Stan Model...")
+  templs[[modelname]]<-do.call(stan,stan_arg)
+  message("Completed!")
+
+  save(list = c(modelname),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
+  if(assignresult){assign(x = modelname,value = templs[[modelname]],envir = .GlobalEnv)}else{return(templs[[modelname]])}
+  if(open_shinystan){launch_shinystan(templs[[modelname]])}
 }
 
