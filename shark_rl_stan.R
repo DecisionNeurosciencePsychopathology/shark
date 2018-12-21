@@ -23,25 +23,6 @@ shark_stan<-shark_stan_prep(shark_split_all)
 # } else{allmodels<-new.env()}
 
 
-###Model starts here:
-SH_daw_nolapse_l1=stan(file='stan_scripts/daw_nolapse_lambda1.stan',
-                       data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                       pars=c('lp_','prev_choice','tran_count','tran_type','Q_TD','Q_MB','Q_2','delta_1','delta_2'),
-                       include=FALSE,iter=4000,control=list(adapt_delta=0.99,stepsize=.01))
-launch_shinystan(SH_daw_nolapse_l1)
-assign("SH_daw_nolapse_l1",SH_daw_nolapse_l1,envir = allmodels)
-
-save(allmodels,file = "stanmodeloutput.rdata")
-
-
-#Bump up the iterations;
-SH_otto_nolapse_l1=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod.stan',
-                       data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                       pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                       include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-assign("SH_otto_nolapse_l1",SH_otto_nolapse_l1,envir = allmodels)
-launch_shinystan(SH_otto_nolapse_l1)
-save(allmodels,file = "stanmodeloutput.rdata")
 ############################HC Modeling:############################
 #Bump up the iterations;
 shark_stan_HC<-shark_stan_prep(shark_split_HC)
@@ -120,8 +101,77 @@ run_shark_stan(data_list=shark_stan_lowpers,stanfile='stan_scripts/otto_nolapse_
                modelname="SH_otto_nolapse_l1_lowpers",stan_args="default",assignresult=T,iter = 4000,
                savepath="stan_scripts/stan_output",open_shinystan=T)
 
+shark_stan_HC<-shark_stan_prep(shark_split = shark_split_HC)
+run_shark_stan(data_list=shark_stan_HC,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_betadist.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_betadist_HC",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
+#Who are high on beta:
+shark_split_HC_HBeta<-shark_split_all[high_mb_hc]
+shark_stan_HC_HBeta<-shark_stan_prep(shark_split_HC_HBeta)
+run_shark_stan(data_list=shark_stan_HC_HBeta,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_betadist.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_betadist_HCHMB",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=T)
+#All HMB
+shark_stan_HMB<-shark_stan_prep(shark_split_MB_all[high_MB_all])
+run_shark_stan(data_list=shark_stan_HMB,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_betadist.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_betadist_HMB",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+#Everyone:
+shark_stan_all<-shark_stan_prep(shark_split_all)
+run_shark_stan(data_list=shark_stan_all,stanfile='stan_scripts/otto_nolapse_lambda1_jcmod_betadist.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_nolapse_l1_betadist_all",stan_args="default",assignresult=T,iter = 4000,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+SH_otto_betadist_all_log_lik<-shark_get_log_lik(stan_fitoutput = SH_otto_nolapse_l1_betadist_all$stanfit_SH_otto_nolapse_l1_betadist_all,
+                                                data_list = shark_stan_all)
+names(SH_otto_betadist_all_log_lik)<-shark_stan_all$ID
+################Let's add motor perseveration:###########
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+#Let's run these models:
+#So we know motor_pre and pre_choice is good. we will keep them; now try unified first stage betas but leave second one alone;
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_ubeta.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_ubeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+##Now let's run the basic model with shark in health controls...
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_wShark.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_wShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+#Now let's run the basic model on all subjects.....
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_all",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+#Try shark with group level 
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_wIndviShark.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_wIndiviShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
+
+
+
+
+get_summary_df(output_ls = SH_otto_l1_betadist_mp_all,pars = c("beta_1_MB"),returnas = "data.frame",probs = 0.5)
+
+everyone<-lapply(shark_split_HC,function(dfx){
+  nsg<-list()
+  for(i in 1:nrow(dfx)){
+    if(i==1){
+    alpha_b=1
+    beta_b=1}
+    
+    if(!is.na(dfx$state[i]) & !is.na(dfx$choice1[i])){
+    if ((dfx$state[i]- dfx$choice1[i]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
+    mu_b = ((alpha_b) / (alpha_b+beta_b));
+    } else {mu_b = NA}
+    nsg[[i]]=data.frame(mu_b=mu_b,alpha_b=alpha_b,beta_b=beta_b)
+  }
+  do.call(rbind,nsg)
+
+})
 
 
 #############OLDER MODELS###################

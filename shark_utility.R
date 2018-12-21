@@ -348,17 +348,19 @@ shark_stan_prep<-function(shark_split=NULL){
     nS=nS,nT=nT,
     grp_dep=array(0,dim=c(nS)),grp_ide=array(0,dim = c(nS)),grp_att=array(0,dim=c(nS)),
     choice=array(0,dim=c(nS,nT,2)),
+    motorchoice=array(0,dim=c(nS,nT,2)),
     state_2=array(0,dim=c(nS,nT)),
     shark=array(0,dim=c(nS,nT)), 
     reward=array(0,dim=c(nS,nT)),
     missing_choice=array(0,dim=c(nS,nT,2)),
     missing_reward=array(0,dim=c(nS,nT)),
-    ID=array(0,dim=nS)
+    ID=array(0,dim=nS), Group=array(0,dim=nS)
   )
   for(s in 1:nS) {
     #message(s)
     dfx<-shark_split[[s]]
     shark_stan$ID[s]<-unique(as.character(dfx$ID))
+    shark_stan$Group[s]<-unique(as.character(dfx$GROUP1245))
     shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="2")
     shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="4")
     shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
@@ -367,12 +369,16 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$state_2[s,1:nrow(dfx)]<-(as.numeric(dfx$Transition=="Rare")+1) #State is 1 or 2
     shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
     shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
+    shark_stan$motorchoice[s,1:nrow(dfx),1]<-as.numeric(ifelse(dfx$keycode1==1,1,-1)) 
+    shark_stan$motorchoice[s,1:nrow(dfx),2]<-as.numeric(ifelse(dfx$keycode2==1,1,-1)) 
     #Deal with missing trials;
     miss_c1<-which(is.na(dfx$choice1) | dfx$rts1 > 4 | dfx$rts1 < 0.2)
     miss_c2<-which(is.na(dfx$choice2) | dfx$rts2 > 4 | dfx$rts2 < 0.2)
     #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0
+    shark_stan$motorchoice[s,miss_c1,1]=0
+    shark_stan$motorchoice[s,miss_c2,2]=0
     #shark_stan$reward[s,miss_any]=0
     shark_stan$state_2[s,miss_c2]=1
     shark_stan$missing_choice[s,miss_c1,1]=1
@@ -383,7 +389,7 @@ shark_stan_prep<-function(shark_split=NULL){
   return(shark_stan)
 }
 
-run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,add_args=NULL,add_data=NULL,
+run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,add_args=NULL,add_data=NULL,forcererun=F,skipthis=F,
                          savepath="stan_scripts/stan_output",pars=NULL,iter=NULL,chains=NULL,open_shinystan=F){
   if(stan_args=="default"){stan_arg<-list(verbose=FALSE,save_warmup=FALSE,
                                           pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
@@ -396,13 +402,73 @@ run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="
   
   #Protect against new updates:
   if(is.null(stan_arg$data$factorizedecay)){is.null(stan_arg$data$factorizedecay)<-0}
+  if(forcererun | !file.exists(file.path(savepath,paste0(modelname,".rdata")))){
   templs<-list()
   message("Start Running Stan Model...")
-  templs[[modelname]]<-do.call(stan,stan_arg)
+  templs[[paste0("stanfit_",modelname)]]<-do.call(stan,stan_arg)
   message("Completed!")
-
-  save(list = c(modelname),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
-  if(assignresult){assign(x = modelname,value = templs[[modelname]],envir = .GlobalEnv)}else{return(templs[[modelname]])}
-  if(open_shinystan){launch_shinystan(templs[[modelname]])}
+  templs[["data_list"]]<-data_list
+  save(list = c(paste0("stanfit_",modelname),"data_list"),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
+  } else if (!forcererun & !skipthis) {
+    message("This model has been previously ran, and now will load it"); 
+    tempenvir<-new.env(); load(file.path(savepath,paste0(modelname,".rdata")),envir = tempenvir)
+    templs<-as.list(tempenvir)
+  } else {message("This model has been skipped.")}
+  if(!skipthis){
+  if(assignresult){assign(x = modelname,value = templs,envir = .GlobalEnv)}else{return(templs)}
+  if(open_shinystan){launch_shinystan(templs[[paste0("stanfit_",modelname)]])}
+  }
 }
+
+get_summary_df<-function(output_ls=NULL,pars=c("alpha","beta_1_MF","beta_1_MB"),returnas="data.frame",probs=0.5){
+  stan_outfit<-output_ls[[grep("stanfit_",names(output_ls))]]
+  stan_ls<-list(ID=output_ls$data_list$ID,Group=output_ls$data_list$Group,row.names = NULL)
+  allpars<-lapply(pars,function(parx){
+    summary(stan_outfit,pars=pars,probs=probs)$summary[,paste0(probs*100,"%")]
+  })
+  names(allpars)<-pars
+  stan_lsx<-c(stan_ls,allpars)
+  if(returnas=="data.frame"){
+    message("Please ensure the dimensions of the parameters in query is of the same length otherwise you will encounter error.")
+    stan_return<-do.call(data.frame,stan_lsx)
+  } else {stan_return<-stan_lsx}
+  return(stan_return)
+}
+
+model_par_compar<-function(fit_list=NULL,data_list=NULL,pars=c("beta_1_MB","beta_1_MF"),probs=0.5){
+  
+}
+
+extract_pars<-function(stan_fitoutput=NULL,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean){
+  extracted_df<-extract(stan_fitoutput)
+  if(length(pars)>1) {
+    tx<-lapply(pars,function(parx){
+      #pars[[1]]->parx
+      maxtrixtdo<-extracted_df[[parx]]
+      marginx<-which(!1:length(dim(maxtrixtdo)) %in% mashdim[[parx]])
+      txx<-apply(maxtrixtdo,marginx,FUNC)
+      return(txx)
+    })
+  }else {
+    pars[[1]]->parx
+    maxtrixtdo<-extracted_df[[parx]]
+    marginx<-which(!1:length(dim(maxtrixtdo)) %in% mashdim[[parx]])
+    tx<-apply(maxtrixtdo,marginx,FUNC)
+  }
+  return(tx)
+}
+
+shark_get_log_lik<-function(stan_fitoutput=NULL){
+  sh_loglik_matrix<-extract_pars(stan_fitoutput=stan_fitoutput,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean)
+  all_sub<-lapply(1:dim(sh_loglik_matrix)[1],function(xj){
+    data.frame(stage1_loglik=sh_loglik_matrix[xj,,1],
+               stage2_loglike=sh_loglik_matrix[xj,,2])
+  })
+  return(all_sub)
+}
+
+
+
+
+
 
