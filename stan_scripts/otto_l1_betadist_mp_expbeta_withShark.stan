@@ -6,6 +6,7 @@ data {
   int<lower=0,upper=1> reward[nS,nT];
   int<lower=1,upper=2> state_2[nS,nT]; 
   int missing_choice[nS,nT,2];
+  int shark[nS,nT];
 }
 
 parameters {
@@ -18,14 +19,15 @@ parameters {
   real beta_2_m;
   real<lower=0> beta_2_s;
   
-
+  real beta_1_MB_shark_gm;
+  real beta_1_MB_shark_gs;
 
   real pers_m;
   real<lower=0> pers_s;
   real Mo_pers_m;
   real<lower=0> Mo_pers_s;
   
-
+  vector[nS] beta_1_MB_shark_raw;
   
   vector[nS] alpha_raw;
   vector[nS] beta_1_MF_raw;
@@ -40,15 +42,16 @@ transformed parameters {
   //define transformed parameters
   vector<lower=0,upper=1>[nS] alpha;
   vector[nS] beta_1_MF;
-  vector[nS] beta_1_MB;
+  vector[2] beta_1_MB[nS];
   vector[nS] beta_2;
   
   
   vector[nS] alpha_normal;
   vector[nS] beta_1_MF_normal;
-  vector[nS] beta_1_MB_normal;
+  vector[2] beta_1_MB_normal[nS];
   vector[nS] beta_2_normal;
   
+  vector[nS] beta_1_MB_m_shark;
 
   vector[nS] pers;
   vector[nS] Mo_pers;
@@ -58,7 +61,11 @@ transformed parameters {
   alpha_normal = alpha_m + (alpha_s*alpha_raw);
   beta_1_MF_normal = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw);
   beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
-  beta_1_MB_normal = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw) ;
+  beta_1_MB_m_shark = beta_1_MB_shark_gm + beta_1_MB_shark_gs * beta_1_MB_shark_raw;  
+  for (s in 1:nS){
+     beta_1_MB_normal[s,1] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + beta_1_MB_m_shark[s];
+     beta_1_MB_normal[s,2] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) ;
+  }
 
   pers = pers_m + pers_s*pers_raw;
   Mo_pers = Mo_pers_m + Mo_pers_s * Mo_pers_raw;
@@ -93,6 +100,7 @@ model {
   beta_1_MF_m ~ normal(0,5);
   beta_1_MB_m ~ normal(0,5);
   beta_2_m ~ normal(0,5);
+  beta_1_MB_shark_gm ~ normal(0,2);
   pers_m ~ normal(0,2.5);
   Mo_pers_m ~ normal(0,2.5);
   
@@ -100,6 +108,7 @@ model {
   beta_1_MF_s ~ cauchy(0,1);
   beta_1_MB_s ~ cauchy(0,1);
   beta_2_s ~ cauchy(0,1);
+  beta_1_MB_shark_gs ~ cauchy(0,1);
   pers_s ~ cauchy(0,1);
   Mo_pers_s ~ cauchy(0,1);
   
@@ -107,6 +116,7 @@ model {
   beta_1_MF_raw ~ normal(0,1);
   beta_1_MB_raw ~ normal(0,1);
   beta_2_raw ~ normal(0,1);
+  beta_1_MB_shark_raw ~ normal(0,1);
   pers_raw ~ normal(0,1);
   Mo_pers_raw ~ normal(0,1);
   
@@ -131,7 +141,7 @@ model {
         //pirint(beta_1_MF[s,t]);
         choice[s,t,1] ~ bernoulli_logit( 
           
-          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s]) + (pers[s]*prev_choice) + (Mo_pers[s]*prev_motor)
+          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s,shark[s,t]?1:2]) + (pers[s]*prev_choice) + (Mo_pers[s]*prev_motor)
           
           );
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1
@@ -232,7 +242,7 @@ generated quantities {
   beta_b=1;
     for (t in 1:nT) {
       if (missing_choice[s,t,1]==0) {
-        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
+        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s,shark[s,t]?1:2])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1
          prev_motor = 2*motorchoice[s,t,1]-1;
         if (missing_choice[s,t,2]==0) {

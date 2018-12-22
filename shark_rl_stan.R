@@ -126,41 +126,47 @@ SH_otto_betadist_all_log_lik<-shark_get_log_lik(stan_fitoutput = SH_otto_nolapse
 names(SH_otto_betadist_all_log_lik)<-shark_stan_all$ID
 ################Let's add motor perseveration:###########
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 #Let's run these models:
 #So we know motor_pre and pre_choice is good. we will keep them; now try unified first stage betas but leave second one alone;
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_ubeta.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_ubeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_ubeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 ##Now let's run the basic model with shark in health controls...
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_wShark.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_wShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_wShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 #Now let's run the basic model on all subjects.....
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_all",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 #Try shark with group level 
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_wIndviShark.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_wIndiviShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_wIndiviShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 ###Currently the best script is probably otto_l1_betadist_mp.stan
 
 #Okay, now we clean up and try repara beta...
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_expbeta.stan',add_data = list(factorizedecay=0),
-               modelname="SH_otto_l1_betadist_mp_expBeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="SH_otto_l1_betadist_mp_expBeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+#didn't work; try it with Shark?
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_expbeta_withShark.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_expBeta_wShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/otto_l1_betadist_mp_expbeta_withShark.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_expBeta_wShark_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
-
-
-
-get_summary_df(output_ls = SH_otto_l1_betadist_mp_all,pars = c("beta_1_MB"),returnas = "data.frame",probs = 0.5)
+get_summary_df(output_ls = SH_otto_l1_betadist_mp_expBeta_HC,pars = c("beta_1_MB_normal","beta_2_normal","beta_1_MF_normal"),returnas = "data.frame",probs = 0.5)
+get_summary_df(output_ls = SH_otto_l1_betadist_mp_expBeta_HC,pars = c("beta_1_MB","beta_2","beta_1_MF"),returnas = "data.frame",probs = 0.5)
 
 everyone<-lapply(shark_split_HC,function(dfx){
   nsg<-list()
@@ -179,36 +185,3 @@ everyone<-lapply(shark_split_HC,function(dfx){
 
 })
 
-
-#############OLDER MODELS###################
-SH_otto_nolapse_l1_HC_HBeta_wgrp=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wgroup.stan',
-                                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                                        include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))
-assign("SH_otto_nolapse_l1_HC_HBeta_wgrp",SH_otto_nolapse_l1_HC_HBeta_wgrp,envir = allmodels)
-save(allmodels,file = "stanmodeloutput.rdata")
-launch_shinystan(SH_otto_nolapse_l1_HC_HBeta_wgrp) 
-
-##############STOP FIGURE OUT THE BASE MODEL BEFORE ADVANCING#####################
-SH_otto_nolapse_l1_shark=stan(file='stan_scripts/otto_nolapse_lambda1_jcmod_wshark.stan',
-                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                        include=FALSE,iter=8000,control=list(adapt_delta=0.99,stepsize=.01))
-print('running new model') 
-assign("SH_otto_nolapse_l1_shark",SH_otto_nolapse_l1_shark,envir = allmodels)
-launch_shinystan(SH_otto_nolapse_l1_shark)
-save(allmodels,file = "stanmodeloutput.rdata")
-
-
-SH_otto_nolapse_l1_wShark_grpDiff=stan(file='stan_scripts/otto_nolapse_lambda1_wShark_grp.stan',
-                        data=shark_stan,verbose=FALSE,save_warmup=FALSE,
-                        pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
-                        include=FALSE,iter=8000,control=list(adapt_delta=0.99,stepsize=.01))
-print('running new model') 
-assign("SH_otto_nolapse_l1_wShark_grpDiff",SH_otto_nolapse_l1_wShark_grpDiff,envir = allmodels)
-launch_shinystan(SH_otto_nolapse_l1_wShark_grpDiff)
-save(allmodels,file = "stanmodeloutput.rdata")
-     
-     
-     
-     

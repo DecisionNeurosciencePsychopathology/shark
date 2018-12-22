@@ -424,10 +424,10 @@ get_summary_df<-function(output_ls=NULL,pars=c("alpha","beta_1_MF","beta_1_MB"),
   stan_outfit<-output_ls[[grep("stanfit_",names(output_ls))]]
   stan_ls<-list(ID=output_ls$data_list$ID,Group=output_ls$data_list$Group,row.names = NULL)
   allpars<-lapply(pars,function(parx){
-    summary(stan_outfit,pars=pars,probs=probs)$summary[,paste0(probs*100,"%")]
+    summary(stan_outfit,pars=parx,probs=probs)$summary[,paste0(probs*100,"%")]
   })
   names(allpars)<-pars
-  stan_lsx<-c(stan_ls,allpars)
+  stan_lsx<-c(allpars,stan_ls)
   if(returnas=="data.frame"){
     message("Please ensure the dimensions of the parameters in query is of the same length otherwise you will encounter error.")
     stan_return<-do.call(data.frame,stan_lsx)
