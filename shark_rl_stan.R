@@ -172,6 +172,10 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
                modelname="SH_otto_jc_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_ubeta2indiv.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_ubeta2indiv_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',add_data = list(factorizedecay=0),
                modelname="otto_jc_l1_betadist_mp_ubeta2_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
@@ -179,6 +183,10 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',add_data = list(factorizedecay=0),
                modelname="otto_jc_l1_betadist_mp_ubeta2_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
+
+
+
+
 
 get_summary_df(output_ls = SH_otto_l1_betadist_mp_ubeta2_HC,pars = c("beta_1_MB_normal","beta_2_normal","beta_1_MF_normal"),returnas = "data.frame",probs = 0.5)
 get_summary_df(output_ls = SH_otto_l1_betadist_mp_ubeta2_HC,pars = c("beta_1_MB","beta_2","beta_1_MF"),returnas = "data.frame",probs = 0.5)
