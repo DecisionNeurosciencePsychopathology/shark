@@ -174,7 +174,7 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
 
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_ubeta2indiv.stan',add_data = list(factorizedecay=0),
                modelname="SH_otto_l1_betadist_mp_ubeta2indiv_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
-               savepath="stan_scripts/stan_output",open_shinystan=F).
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
 
