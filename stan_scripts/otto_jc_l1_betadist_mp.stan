@@ -168,9 +168,10 @@ model {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+delta_2);
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1) + 1*(delta_2);
              Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
-            
+             
+             //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] 
              
              //update unchosen TD & second stage values
              Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
@@ -263,14 +264,15 @@ generated quantities {
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
              // expectation of transition, otherwise update 2nd expectation
-             tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 1 : 2;
-             tran_type[tran_count] = tran_type[tran_count] + 1;
+             //tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 1 : 2;
+             //tran_type[tran_count] = tran_type[tran_count] + 1;
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1[s,t]+delta_2[s,t]);
-             Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2[s,t];
-            
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1[s,t]) + (delta_2[s,t]);
+             Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + (alpha[s]*delta_2[s,t]);
+             
+   
              
              //update unchosen TD & second stage values
              Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
