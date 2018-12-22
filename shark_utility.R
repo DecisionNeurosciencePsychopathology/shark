@@ -372,8 +372,8 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$motorchoice[s,1:nrow(dfx),1]<-as.numeric(ifelse(dfx$keycode1==1,1,-1)) 
     shark_stan$motorchoice[s,1:nrow(dfx),2]<-as.numeric(ifelse(dfx$keycode2==1,1,-1)) 
     #Deal with missing trials;
-    miss_c1<-which(is.na(dfx$choice1) | dfx$rts1 > 4 | dfx$rts1 < 0.2)
-    miss_c2<-which(is.na(dfx$choice2) | dfx$rts2 > 4 | dfx$rts2 < 0.2)
+    miss_c1<-which(is.na(dfx$choice1) | dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack))
+    miss_c2<-which(is.na(dfx$choice2) | dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack))
     #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0

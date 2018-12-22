@@ -22,7 +22,7 @@ shark_stan<-shark_stan_prep(shark_split_all)
 #   load("stanmodeloutput.rdata")
 # } else{allmodels<-new.env()}
 
-
+stop("DO NOT JUST AUTO SOURCE!")
 ############################HC Modeling:############################
 #Bump up the iterations;
 shark_stan_HC<-shark_stan_prep(shark_split_HC)
@@ -149,6 +149,12 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
                modelname="SH_otto_l1_betadist_mp_wIndiviShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+###Currently the best script is probably otto_l1_betadist_mp.stan
+
+#Okay, now we clean up and try repara beta...
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_expbeta.stan',add_data = list(factorizedecay=0),
+               modelname="SH_otto_l1_betadist_mp_expBeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
 
@@ -202,5 +208,7 @@ print('running new model')
 assign("SH_otto_nolapse_l1_wShark_grpDiff",SH_otto_nolapse_l1_wShark_grpDiff,envir = allmodels)
 launch_shinystan(SH_otto_nolapse_l1_wShark_grpDiff)
 save(allmodels,file = "stanmodeloutput.rdata")
-
-
+     
+     
+     
+     
