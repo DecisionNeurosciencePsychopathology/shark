@@ -20,8 +20,8 @@ parameters {
   real beta_2_m;
   real<lower=0> beta_2_s;
   
-  real omega_m;
-  real<lower=0> omega_s;
+  //real omega_m;
+  //real<lower=0> omega_s;
   //real lambda_m;
   //real<lower=0> lambda_s;
   real pers_m;
@@ -105,7 +105,7 @@ model {
   //define priors
   alpha_m ~ normal(0,2.5);
   beta_1_m ~ normal(0,5);
-  omega_m ~ normal(0,5);
+  //omega_m ~ normal(0,5);
   beta_2_m ~ normal(0,5);
   //lambda_m ~ normal(0,2);
   pers_m ~ normal(0,2.5);
@@ -113,7 +113,7 @@ model {
   
   alpha_s ~ cauchy(0,1);
   beta_1_s ~ cauchy(0,1);
-  omega_s ~ cauchy(0,1);
+  //omega_s ~ cauchy(0,1);
   beta_2_s ~ cauchy(0,1);
   //lambda_s ~ cauchy(0,1);
   pers_s ~ cauchy(0,1);
@@ -171,7 +171,7 @@ model {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1)+(1*delta_2);
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1)+(1*delta_2);
              
              Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
             

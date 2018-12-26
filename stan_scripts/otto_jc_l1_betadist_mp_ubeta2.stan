@@ -92,7 +92,7 @@ model {
   int prev_choice;
   int prev_motor;
   //int tran_count;
-  //int tran_type[2];
+  int tran_type;
   int unc_state;
   real delta_1;
   real delta_2;
@@ -184,11 +184,13 @@ model {
              Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
             
             //Use Beta distribution instead of fix value for trans p;
+            
+            
             if ((state_2[s,t]-choice[s,t,1]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
             mu_b = ((alpha_b) / (alpha_b+beta_b));
              
-            Q_MB[1] =  ((mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
-            Q_MB[2] =  ((1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
+            Q_MB[1] =  ( (mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]) );
+            Q_MB[2] =  ( (1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]) );
          
                            
           //} //if missing 2nd stage reward: do nothing

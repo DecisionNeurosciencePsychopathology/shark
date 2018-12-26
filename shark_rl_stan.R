@@ -194,9 +194,25 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
+fitxj <- stan(file='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',data = shark_stan_prep(shark_split_HC), iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
 
+sapply(c(1,2,4,5),function(jx){mean(txjk[txjk$Group==jx,c("omega")])})
+
+get_summary_df(output_ls = otto_jc_l1_betadist_mp_ubeta2indiv_all,pars = c("beta_1_MB","beta_2","beta_1_MF","omega"),returnas = "data.frame",probs = 0.5)->txjk
+shark_stan_HC<-shark_stan_prep(shark_split_HC)
 get_summary_df(output_ls = SH_otto_l1_betadist_mp_ubeta2_HC,pars = c("beta_1_MB_normal","beta_2_normal","beta_1_MF_normal"),returnas = "data.frame",probs = 0.5)
-get_summary_df(output_ls = SH_otto_l1_betadist_mp_ubeta2_HC,pars = c("beta_1_MB","beta_2","beta_1_MF"),returnas = "data.frame",probs = 0.5)
+get_summary_df(output_ls = otto_jc_l1_betadist_mp_ubeta2_HC,pars = c("beta_1_MB","beta_2","beta_1_MF","pers","Mo_pers","omega"),returnas = "data.frame",probs = 0.5)
+
+ubeta_HC<-shark_get_log_lik(stan_fitoutput = otto_jc_l1_betadist_mp_ubeta2_HC$stanfit_otto_jc_l1_betadist_mp_ubeta2_HC)
+ubetaIndivi_HC<-shark_get_log_lik(stan_fitoutput = otto_jc_l1_betadist_mp_ubeta2indiv_HC$stanfit_otto_jc_l1_betadist_mp_ubeta2indiv_HC)
+spbeta_nm_HC<-shark_get_log_lik(stan_fitoutput = SH_otto_l1_betadist_mp_HC$stanfit_SH_otto_l1_betadist_mp_HC)
+
+lx<-data.frame(choice=shark_stan_HC$choice[12,,1],
+ub_hc=ubeta_HC[[12]]$stage1_loglik,
+ubi_hc=ubetaIndivi_HC[[12]]$stage1_loglik)
+
+get_summary_df(output_ls = otto_jc_l1_betadist_mp_ubeta2_HC,pars = c("omega"),returnas = "data.frame",probs = 0.5)
+
 
 everyone<-lapply(shark_split_HC,function(dfx){
   nsg<-list()
