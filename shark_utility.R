@@ -1,8 +1,33 @@
 #Utlity functions:
 library(dplyr)
+
 getifswitched<-function(y) {
-  c(y[1],y[1:length(y)-1])->y_lag
+  y_lag<-dplyr::lag(y)
   return(!y==y_lag)
+}
+
+ProcApply<-function(listx=NULL,FUNC=NULL,...,addNAtoNull=T) {
+  proc_ls<-lapply(X = listx,FUN = FUNC,... = ...)
+  if(addNAtoNull){
+    allnames<-unique(unlist(lapply(proc_ls,names)))
+    proc_ls<-lapply(proc_ls,function(lsx){
+      lsx[allnames[which(!allnames %in% names(lsx))]]<-NA
+      return(lsx)
+    })
+  }
+  return(list(list=proc_ls,
+              df=do.call(rbind,proc_ls)))
+}
+findbox<-function() {
+  if (Sys.getenv("USER")=="jiazhouchen") {boxdir <- "/Users/jiazhouchen/Box"
+  } else if (Sys.getenv("USER")=="jiazhou") {boxdir <- "/Volumes/bek/Box Sync"} else {
+    boxdir<-system("find ~ -iname 'Box*' -maxdepth 2 -type d",intern = T)}
+  return(boxdir)
+}
+cleanuplist<-function(listx){
+  if (any(sapply(listx, is.null))){
+    listx[sapply(listx, is.null)] <- NULL}
+  return(listx)
 }
 
 #Label probability function
@@ -366,7 +391,7 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
     shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1)-1 #Choice is 0 or 1
     shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2)-1
-    shark_stan$state_2[s,1:nrow(dfx)]<-(as.numeric(dfx$Transition=="Rare")+1) #State is 1 or 2
+    shark_stan$state_2[s,1:nrow(dfx)]<-dfx$state-1 #State is 1 or 2
     shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
     shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
     shark_stan$motorchoice[s,1:nrow(dfx),1]<-as.numeric(ifelse(dfx$keycode1==1,1,-1)) 

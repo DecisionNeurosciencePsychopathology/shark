@@ -190,11 +190,18 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
                modelname="otto_jc_l1_betadist_mp_ubeta2indiv_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta2indiv.stan',add_data = list(factorizedecay=0),
-               modelname="otto_jc_l1_betadist_mp_ubeta2indiv_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+               modelname="otto_jc_l1_betadist_mp_ubeta2indiv_all",stan_args="default",assignresult=T,iter = 1000,forcererun = F,chains = 1,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta2indiv.stan',add_data = list(factorizedecay=0),
+               modelname="otto_jc2_l1_betadist_mp_ubeta2indiv_hc",stan_args="default",assignresult=T,iter = 4000,forcererun = T,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
-fitxj <- stan(file='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',data = shark_stan_prep(shark_split_HC), iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',add_data = list(factorizedecay=0),
+               modelname="otto_jc2_l1_betadist_mp_ubeta2_HC",stan_args="default",assignresult=T,iter = 2000,forcererun = T,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+fitxr <- stan(file='stan_scripts/otto_jc_l1_betadist_mp_ubeta2.stan',data = shark_stan_prep(shark_split_HC[1]), iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
 
 sapply(c(1,2,4,5),function(jx){mean(txjk[txjk$Group==jx,c("omega")])})
 
@@ -222,7 +229,13 @@ everyone<-lapply(shark_split_HC,function(dfx){
     beta_b=1}
     
     if(!is.na(dfx$state[i]) & !is.na(dfx$choice1[i])){
-    if ((dfx$state[i]- dfx$choice1[i]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
+      
+      if (dfx$choice1[i]==1 & dfx$state[i]==2) {alpha_b = alpha_b + 1;}   
+      if (dfx$choice1[i]==2 & dfx$state[i]==3) {alpha_b = alpha_b + 1;}
+      
+      if (dfx$choice1[i]==1 & dfx$state[i]==3) {beta_b = beta_b + 1;}   
+      if (dfx$choice1[i]==2 & dfx$state[i]==2) {beta_b = beta_b + 1;}  
+
     mu_b = ((alpha_b) / (alpha_b+beta_b));
     } else {mu_b = NA}
     nsg[[i]]=data.frame(mu_b=mu_b,alpha_b=alpha_b,beta_b=beta_b)
@@ -230,4 +243,52 @@ everyone<-lapply(shark_split_HC,function(dfx){
   do.call(rbind,nsg)
 
 })
+
+xr<-extract(fitxr)
+xr$Q_MB[1,5,,]
+Q_MB_b<-apply(xr$Q_MB,c(2,3,4),mean)
+all_Q_MB<-do.call(rbind,lapply(1:dim(Q_MB_b)[1],function(sx){
+  dfx<-data.frame(S1=Q_MB_b[sx,,1],S2=Q_MB_b[sx,,2])
+  dfx$trial<-1:nrow(dfx)
+  m_dfx<-reshape2::melt(dfx,id.vars="trial")
+  m_dfx$ID<-sx
+  return(m_dfx)
+})
+)
+
+ggplot(data = all_Q_MB,aes(x=trial,y=value,color=variable)) + geom_line() + facet_wrap(~ID)
+
+apply(ox$Q_TD,dim(Q_TD)[2:length(dim(Q_TD))],mean)
+all_Q_MB<-do.call(rbind,lapply(1:dim(Q_MB_a)[1],function(sx){
+  dfx<-data.frame(S1=Q_MB_a[sx,,1],S2=Q_MB_a[sx,,2])
+  dfx$trial<-1:nrow(dfx)
+  m_dfx<-reshape2::melt(dfx,id.vars="trial")
+  m_dfx$ID<-sx
+  return(m_dfx)
+})
+)
+
+ggplot(data = all_Q_MB,aes(x=trial,y=value,color=variable)) + geom_line() + facet_wrap(~ID)
+
+Q_2_a<-apply(ox$Q_2,2:length(dim(ox$Q_2)),mean)
+
+sx<-6
+dfx<-data.frame(S1C1=Q_2_a[sx,,1,1],S1C2=Q_2_a[sx,,1,2],S2C1=Q_2_a[sx,,2,1],S2C2=Q_2_a[sx,,2,2])
+dfx2<-data.frame(S1=apply(Q_2_a[sx,,1,],1,max),S2=apply(Q_2_a[sx,,2,],1,max))
+dfx$trial<-1:nrow(dfx)
+m_dfx<-reshape2::melt(dfx,id.vars="trial")
+ggplot(data = m_dfx,aes(x=trial,y=value,color=variable)) + geom_line() 
+
+
+
+ac<-shark_get_log_lik(stan_fitoutput = otto_jc2_l1_betadist_mp_ubeta2_HC$stanfit_otto_jc2_l1_betadist_mp_ubeta2_HC)
+ab<-shark_stan_prep(shark_split_HC)
+
+plot(ab$choice[4,,1],ac[[4]]$stage1_loglik)
+
+
+
+
+
+
 

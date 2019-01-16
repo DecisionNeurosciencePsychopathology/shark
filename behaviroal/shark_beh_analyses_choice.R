@@ -181,16 +181,18 @@ high_mb_hc<-rownames(shark_coef_hc)[which(shark_coef_hc$`RewardTypeNo Reward:Tra
 ###################
 
 #RT Models:
-rtshark1<-lme4::lmer(formula = scale(rts1_scale_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
+rtshark1<-lme4::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
                        # Transition * RewardType * GROUP1245 +
                        # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
                        # RewardType * GROUP1245 * BlockType +
-                        Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
-                       (RewardType * Transition | ID/Run),REML = F,
+                       (Transition + RewardType + BlockType + depress)^4 +   #Use for 4 ways
+                       (1 | ID/Run),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                      control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
                      )
+
+
 summary(rtshark1)                      
 car::Anova(rtshark1, type = 'III')
 coefs <- data.frame(coef(summary(rtshark1)))
@@ -245,9 +247,17 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) +
   ymax = emmean + SE),
   stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~BlockType,ncol = 2)
 
-emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
+  lower = emmean - SE, 
+  upper = emmean + SE, 
+  middle = emmean, 
+  ymin = emmean - 3*SE, 
+  ymax = emmean + 3*SE),
+  stat = "identity") + facet_wrap(~GROUP1245+BlockType,ncol = 2)
+
+ggplot(data=dfemmeans, aes(x=RewardType, y=rts1_lead, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 
   upper = emmean + SE, 
   middle = emmean, 

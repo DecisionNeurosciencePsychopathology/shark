@@ -144,6 +144,13 @@ model {
   
     for (t in 1:nT) {
       //use if not missing 1st stage choice
+      
+      //Use Beta distribution instead of fix value for trans p; Let's update it before hand;
+      mu_b = ((alpha_b) / (alpha_b+beta_b));
+      Q_MB[1] =  ((mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
+      Q_MB[2] =  ((1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
+         
+      
       if (missing_choice[s,t,1]==0) {
         //pirint(beta_1_MF[s,t]);
         choice[s,t,1] ~ bernoulli_logit( 
@@ -183,14 +190,8 @@ model {
              Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
              Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
             
-            //Use Beta distribution instead of fix value for trans p;
-            if ((state_2[s,t]-choice[s,t,1]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
-            mu_b = ((alpha_b) / (alpha_b+beta_b));
-             
-            Q_MB[1] =  ((mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
-            Q_MB[2] =  ((1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
-         
-                           
+             if ((state_2[s,t]-choice[s,t,1]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
+
           //} //if missing 2nd stage reward: do nothing
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
@@ -201,7 +202,9 @@ model {
           Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
           Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
           Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
-          //MB update of first stage values based on second stage values, so don't change
+          //MB update of first stage values based on second stage values, so don't change //not true...update happened post 
+          
+          
 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values & update previous choice
@@ -230,18 +233,18 @@ generated quantities {
   int unc_state;
   real delta_1[nS,nT];
   real delta_2[nS,nT];
-  real Q_TD[2];
-  real Q_MB[2];
-  real Q_2[2,2];
+  real Q_TD[nS,nT+1,2];
+  real Q_MB[nS,nT,2];
+  real Q_2[nS,nT+1,2,2];
   real alpha_b; real beta_b;real mu_b;
  
   
   for (s in 1:nS) {
     for (i in 1:2) {
-      Q_TD[i]=.5;
-      Q_MB[i]=.5;
-      Q_2[1,i]=.5;
-      Q_2[2,i]=.5;
+      Q_TD[s,1,i]=.5;
+      Q_MB[s,1,i]=.5;
+      Q_2[s,1,1,i]=.5;
+      Q_2[s,1,2,i]=.5;
      // tran_type[i]=0;
     }
   prev_motor=0;
@@ -249,21 +252,26 @@ generated quantities {
   alpha_b=1;
   beta_b=1;
     for (t in 1:nT) {
+      mu_b = ((alpha_b) / (alpha_b+beta_b));
+             
+      Q_MB[s,t,1] =  ((mu_b)*fmax(Q_2[s,t,1,1],Q_2[s,t,1,2]) + (1-mu_b)*fmax(Q_2[s,t,2,1],Q_2[s,t,2,2]));
+      Q_MB[s,t,2] =  ((1-mu_b)*fmax(Q_2[s,t,1,1],Q_2[s,t,1,2]) + (mu_b)*fmax(Q_2[s,t,2,1],Q_2[s,t,2,2]));
+      
       if (missing_choice[s,t,1]==0) {
-        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
+        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
         
         prev_choice = 2*choice[s,t,1]-1; //1 if choice 2, -1 if choice 1
         prev_motor = 2*motorchoice[s,t,1]-1;
         
         if (missing_choice[s,t,2]==0) {
-          log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])*beta_2[s]));
+          log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])*beta_2[s]));
           
           //use if not missing 2nd stage reward
           //if (missing_reward[s,t]==0) {
             //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1[s,t] = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s]-Q_TD[choice[s,t,1]+1]; 
-             delta_2[s,t] = reward[s,t]/alpha[s] - Q_2[state_2[s,t],choice[s,t,2]+1];
+             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s] - Q_TD[s,t,choice[s,t,1]+1]; 
+             delta_2[s,t] = reward[s,t]/alpha[s] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
              // expectation of transition, otherwise update 2nd expectation
@@ -272,47 +280,48 @@ generated quantities {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1[s,t])+(1*delta_2[s,t]);
-             Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2[s,t];
+             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s]*delta_1[s,t])+(1*delta_2[s,t]);
+             Q_2[s,t+1,state_2[s,t],choice[s,t,2]+1] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2[s,t];
             
              
              //update unchosen TD & second stage values
-             Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-             Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
+             Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
+             Q_2[s,t+1,state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[s,t,state_2[s,t],(choice[s,t,2] ? 1 : 2)];
              unc_state = (state_2[s,t]-1) ? 1 : 2;
-             Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
-             Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
+             Q_2[s,t+1,unc_state,1] = (1-alpha[s])*Q_2[s,t,unc_state,1];
+             Q_2[s,t+1,unc_state,2] = (1-alpha[s])*Q_2[s,t,unc_state,2];
              
              //Use Beta distribution instead of fix value for trans p;
             if ((state_2[s,t]-choice[s,t,1]-1)) {alpha_b = alpha_b + 1;} else {beta_b = beta_b + 1;}
-            mu_b = ((alpha_b) / (alpha_b+beta_b));
-             
-            Q_MB[1] =  ((mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
-            Q_MB[2] =  ((1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
+            
           //} //if missing 2nd stage reward: do nothing
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
           log_lik[s,t,2] = 0;
-          delta_1[s,t] = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
+          delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]-Q_TD[s,t,choice[s,t,1]+1]; 
           delta_2[s,t] = -998;
-          Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*delta_1[s,t];
-          Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-          Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-          Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-          Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-          Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
-          //MB update of first stage values based on second stage values, so don't change
+          Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + alpha[s]*delta_1[s,t];
+          Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
+          Q_2[s,t+1,1,1] = (1-alpha[s])*Q_2[s,t,1,1];
+          Q_2[s,t+1,1,2] = (1-alpha[s])*Q_2[s,t,1,2];
+          Q_2[s,t+1,2,1] = (1-alpha[s])*Q_2[s,t,2,1];
+          Q_2[s,t+1,2,2] = (1-alpha[s])*Q_2[s,t,2,2];
+          //MB update of first stage values based on second stage values, so don't change //But that's not true because second stage value decayed ;_;
+          
 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values
       log_lik[s,t,1] = 0;
       log_lik[s,t,2] = 0;
-      Q_TD[1] = (1-alpha[s])*Q_TD[1];
-      Q_TD[2] = (1-alpha[s])*Q_TD[2];
-      Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
-      Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
-      Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
-      Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+      Q_TD[s,t+1,1] = (1-alpha[s])*Q_TD[s,t,1];
+      Q_TD[s,t+1,2] = (1-alpha[s])*Q_TD[s,t,2];
+      Q_2[s,t+1,1,1] = (1-alpha[s])*Q_2[s,t,1,1];
+      Q_2[s,t+1,1,2] = (1-alpha[s])*Q_2[s,t,1,2];
+      Q_2[s,t+1,2,1] = (1-alpha[s])*Q_2[s,t,2,1];
+      Q_2[s,t+1,2,2] = (1-alpha[s])*Q_2[s,t,2,2];
+      //Decay Q_MB as well
+      
+      
       delta_1[s,t] = -999;
       delta_2[s,t] = -999;
       prev_choice=0;
