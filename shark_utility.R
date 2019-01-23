@@ -378,6 +378,7 @@ shark_stan_prep<-function(shark_split=NULL){
     shark=array(0,dim=c(nS,nT)), 
     reward=array(0,dim=c(nS,nT)),
     missing_choice=array(0,dim=c(nS,nT,2)),
+    skip_choice=array(0,dim=c(nS,nT,2)),
     missing_reward=array(0,dim=c(nS,nT)),
     ID=array(0,dim=nS), Group=array(0,dim=nS)
   )
@@ -397,17 +398,24 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$motorchoice[s,1:nrow(dfx),1]<-as.numeric(ifelse(dfx$keycode1==1,1,-1)) 
     shark_stan$motorchoice[s,1:nrow(dfx),2]<-as.numeric(ifelse(dfx$keycode2==1,1,-1)) 
     #Deal with missing trials;
-    miss_c1<-which(is.na(dfx$choice1) | dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack))
-    miss_c2<-which(is.na(dfx$choice2) | dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack))
+    miss_c1<-which(is.na(dfx$choice1) )
+    miss_c2<-which(is.na(dfx$choice2) )
+    
+    skip_c1<-which(dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack))
+    skip_c2<-which(dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack))
     #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0
     shark_stan$motorchoice[s,miss_c1,1]=0
     shark_stan$motorchoice[s,miss_c2,2]=0
+    
     #shark_stan$reward[s,miss_any]=0
-    shark_stan$state_2[s,miss_c2]=1
+    shark_stan$state_2[s,miss_c2]=1 #This is to make sure that state_2 does not contain any NAs because stan doesn't like it
     shark_stan$missing_choice[s,miss_c1,1]=1
     shark_stan$missing_choice[s,miss_c2,2]=1
+    
+    shark_stan$skip_choice[s,skip_c1,1]=1
+    shark_stan$skip_choice[s,skip_c2,2]=1
     #shark_stan$missing_reward[s,miss_any]=1
     dfx<-NULL
   }
@@ -464,8 +472,10 @@ model_par_compar<-function(fit_list=NULL,data_list=NULL,pars=c("beta_1_MB","beta
   
 }
 
-extract_pars<-function(stan_fitoutput=NULL,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean){
+extract_pars<-function(stan_fitoutput=NULL,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean,extracted_df=NULL){
+  if(is.null(extracted_df)){
   extracted_df<-extract(stan_fitoutput)
+  }
   if(length(pars)>1) {
     tx<-lapply(pars,function(parx){
       #pars[[1]]->parx
@@ -483,11 +493,11 @@ extract_pars<-function(stan_fitoutput=NULL,pars=c("log_lik"),mashdim=list(log_li
   return(tx)
 }
 
-shark_get_log_lik<-function(stan_fitoutput=NULL){
-  sh_loglik_matrix<-extract_pars(stan_fitoutput=stan_fitoutput,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean)
+shark_get_log_lik<-function(extracted_fit=NULL){
+  sh_loglik_matrix<-extract_pars(extracted_df=extracted_fit,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean)
   all_sub<-lapply(1:dim(sh_loglik_matrix)[1],function(xj){
     data.frame(stage1_loglik=sh_loglik_matrix[xj,,1],
-               stage2_loglike=sh_loglik_matrix[xj,,2])
+               stage2_loglik=sh_loglik_matrix[xj,,2])
   })
   return(all_sub)
 }
