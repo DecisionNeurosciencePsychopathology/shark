@@ -311,7 +311,7 @@ generated quantities {
         
         if (missing_choice[s,t,2]==0) {
           
-          if(skip_choice[s,t,1]==0) {
+          if(skip_choice[s,t,2]==0) {
           log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])*beta_2[s,(shark[s,t]+1)]));
           } else {log_lik[s,t,2] = 0;}
           //use if not missing 2nd stage reward
