@@ -94,6 +94,48 @@ ab<-shark_stan_prep(shark_split_HC)
 
 plot(ab$choice[4,,1],ac[[4]]$stage1_loglik)
 
+####################
+
+
+stan_fit_oj<-ottojcmod_l1_betadist_mp_ubeta2_HC$stanfit_ottojcmod_l1_betadist_mp_ubeta2_HC
+data_list<-ottojcmod_l1_betadist_mp_ubeta2_HC$data_list
+pars <- c("alpha_m","alpha_s","beta_1_m","beta_1_s",
+          "omega_m","omega_s","beta_2_m","beta_2_s")
+plot(stan_fit_oj, pars = pars,
+     ask = TRUE, exact_match = TRUE, newpage = TRUE, plot = TRUE)
+
+pairs(stan_fit_oj,pars)
+stanfit_ext<-extract(stan_fit_oj)
+
+log_lik_x<-stanfit_ext$log_lik
+
+mean_loglike<-apply(exp(log_lik_x),c(2,3,4),mean)
+median_loglike<-apply(exp(log_lik_x),c(2,3,4),median)
+mean_Q_TD<-apply(stanfit_ext$Q_TD,c(2,3,4),mean)
+mean_Q_MB<-apply(stanfit_ext$Q_MB,c(2,3,4),mean)
+
+log_lik_df<-do.call(rbind,lapply(1:dim(log_lik_x)[2],function(subj){
+  data.frame(u_loglik_1=mean_loglike[subj,,1],
+             u_loglik_2=mean_loglike[subj,,2],
+             med_loglik_1=median_loglike[subj,,1],
+             med_loglik_2=median_loglike[subj,,2],
+             Q_TD_1=mean_Q_TD[subj,1:100,1],
+             Q_TD_2=mean_Q_TD[subj,1:100,2],
+             Q_MB_1=mean_Q_MB[subj,1:100,1],
+             Q_MB_2=mean_Q_MB[subj,1:100,2],
+             ID=data_list$ID[subj],
+             choice_1=data_list$choice[subj,,1],
+             choice_2=data_list$choice[subj,,2],
+             reward=data_list$reward[subj,],
+             state=data_list$state_2[subj,],
+             Trial=1:100)
+}))
+cor(log_lik_df$u_loglik_1,log_lik_df$choice_1)
+cor(log_lik_df$u_loglik_2,log_lik_df$choice_2)
+
+lik_sp<-split(log_lik_df,log_lik_df$ID)
+
+
 
 
 

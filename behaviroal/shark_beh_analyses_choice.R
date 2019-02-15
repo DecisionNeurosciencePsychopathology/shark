@@ -168,7 +168,7 @@ car::Anova(m1shark, type = 'III')
 m1shark_hc <- glmer(Stay1_lead ~  Stay1  + SameKey1_lead +
                    #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
                    Transition * RewardType * BlockType    #HC Model
-                   + (RewardType * Transition * BlockType | ID),
+                   + (RewardType * Transition | ID),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))

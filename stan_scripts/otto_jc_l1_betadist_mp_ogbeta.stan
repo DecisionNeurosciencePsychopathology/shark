@@ -14,15 +14,16 @@ data {
 parameters {
   real alpha_m;
   real<lower=0> alpha_s;
-  
-  real beta_1_m;
-  real<lower=0> beta_1_s;
-  
-  real beta_2_m;
+  // real<lower=0> beta_1_MF_m;
+  // real<lower=0> beta_1_MF_s;
+  // real<lower=0> beta_1_MB_m;
+  // real<lower=0> beta_1_MB_s;
+  real<lower=0> beta_MF_m;
+  real<lower=0> beta_MF_s;
+  real<lower=0> beta_MB_m;
+  real<lower=0> beta_MB_s;
+  real<lower=0> beta_2_m;
   real<lower=0> beta_2_s;
-  
-  real omega_m;
-  real<lower=0> omega_s;
   //real lambda_m;
   //real<lower=0> lambda_s;
   real pers_m;
@@ -34,8 +35,10 @@ parameters {
   //real<lower=0> omega_s;
   
   vector[nS] alpha_raw;
-  vector[nS] beta_1_raw;
-  vector[nS] omega_raw;
+  //vector[nS] beta_1_MF_raw;
+  //vector[nS] beta_1_MB_raw;
+  vector[nS] beta_MF_raw;
+  vector[nS] beta_MB_raw;
   vector[nS] beta_2_raw;
   //vector[nS] lambda_raw;
   vector[nS] pers_raw;
@@ -50,46 +53,47 @@ transformed parameters {
 
   //define transformed parameters
   vector<lower=0,upper=1>[nS] alpha;
-  vector[nS] beta_1;
-  vector<lower=0,upper=1>[nS] omega;
-  vector[nS] beta_2;
-  
   vector[nS] beta_1_MF;
   vector[nS] beta_1_MB;
+  vector[nS] beta_2;
   
   vector[nS] alpha_normal;
-  vector[nS] beta_1_normal;
-  vector[nS] omega_normal;
+  vector[nS] beta_1_MF_normal;
+  vector[nS] beta_1_MB_normal;
   vector[nS] beta_2_normal;
   
+  
+  //vector<lower=0,upper=1>[nS] lambda;
+  //vector[nS] lambda_normal;
+  //vector[nS] omega;
   vector[nS] pers;
   vector[nS] Mo_pers;
 
   //create transformed parameters using non-centered parameterization for all
   // and logistic transformation for alpha & lambda (range: 0 to 1)
   alpha_normal = alpha_m + (alpha_s*alpha_raw);
-  beta_1_normal = beta_1_m + (beta_1_s * beta_1_raw);
-  beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
- 
-  omega_normal = omega_m + (omega_s * omega_raw);
   
+  beta_1_MF_normal = beta_MF_m + (beta_MF_s * beta_MF_raw);
+  beta_1_MB_normal = beta_MB_m + (beta_MB_s * beta_MB_raw);
+  
+  beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
+  
+  //lambda_normal = lambda_m + lambda_s*lambda_raw;
+  //lambda = inv_logit(lambda_normal);
   pers = pers_m + pers_s*pers_raw;
   Mo_pers = Mo_pers_m + Mo_pers_s * Mo_pers_raw;
+ // omega = omega_m + (omega_s*omega_raw);
+  
   
   alpha = inv_logit(alpha_normal);
+  beta_1_MF = exp(beta_1_MF_normal);
+  beta_1_MB = exp(beta_1_MB_normal);
   beta_2 = exp(beta_2_normal);
-  beta_1 = exp(beta_1_normal);
-  omega = inv_logit(omega_normal);
-  
-  for(S in 1:nS) {
-    beta_1_MF[S] = (1-omega[S]) * beta_1 [S];
-    beta_1_MB[S] = omega[S] * beta_1 [S];
-  }
   
 }
 
 model {
-  //define variables
+ //define variables
   int prev_choice;
   int prev_motor;
   //int tran_count;
@@ -101,28 +105,35 @@ model {
   real Q_MB[2];
   real Q_2[2,2];
   real alpha_b; real beta_b;real mu_b;
+ 
   
   //define priors
   alpha_m ~ normal(0,2.5);
-  beta_1_m ~ normal(0,5);
-  omega_m ~ normal(0,5);
+  beta_MF_m ~ normal(0,2.5);
+  beta_MB_m ~ normal(0,2.5);
+  // beta_1_MF_m ~ normal(0,5);
+  // beta_1_MB_m ~ normal(0,5);
   beta_2_m ~ normal(0,5);
   //lambda_m ~ normal(0,2);
   pers_m ~ normal(0,2.5);
   Mo_pers_m ~ normal(0,2.5);
   
   alpha_s ~ cauchy(0,1);
-  beta_1_s ~ cauchy(0,1);
-  omega_s ~ cauchy(0,1);
+  beta_MF_s ~ cauchy(0,1);
+  beta_MB_s ~ cauchy(0,1);
+  // beta_1_MF_s ~ cauchy(0,1);
+  // beta_1_MB_s ~ cauchy(0,1);
   beta_2_s ~ cauchy(0,1);
   //lambda_s ~ cauchy(0,1);
   pers_s ~ cauchy(0,1);
   Mo_pers_s ~ cauchy(0,1);
   
   alpha_raw ~ normal(0,1);
-  beta_1_raw ~ normal(0,1);
-  omega_raw ~ normal(0,1);
+  // beta_1_MF_raw ~ normal(0,1);
+  // beta_1_MB_raw ~ normal(0,1);
   beta_2_raw ~ normal(0,1);
+  beta_MB_raw ~ normal(0,1);
+  beta_MF_raw ~ normal(0,1);
   //lambda_raw ~ normal(0,1);
   pers_raw ~ normal(0,1);
   Mo_pers_raw ~ normal(0,1);
@@ -210,6 +221,7 @@ model {
           Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
           Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
           Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+         
           //MB update of first stage values based on second stage values, so don't change //not true...update happened post 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values & update previous choice

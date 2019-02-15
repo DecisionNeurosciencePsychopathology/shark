@@ -74,7 +74,7 @@ shark_data_proc <- lapply(shark_data,shark_proc)
 #   dev.off()
 # })
 message("Number of subject before clean up: ",length(shark_data_proc))
-shark_data_proc_exclude1<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.15,P_staycomreinfchance=0.05,returnstats=F))
+shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.15,P_staycomreinfchance=0.05,returnstats=F))
 shark_data_proc_exclude<- cleanuplist(shark_data_proc_exclude)
 message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
 
