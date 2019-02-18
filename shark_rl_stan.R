@@ -251,12 +251,14 @@ for (grp in c("4","5")){
                  savepath="stan_scripts/stan_output",open_shinystan=F)
 }
 
-
-
+nS<-length(shark_split_HC)
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/shahar_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
+               modelname="shahar_l1_betadist_mp_ogbeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,init= shark_initfun,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
 optimizing()
-fitxr <- stan(file='stan_scripts/ottojcmod_betadist_ubeta_wShark.stan',data = shark_stan_prep(shark_split_HC), iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
+fitxr <- stan(file='stan_scripts/shahar_l1_betadist_mp_ogbeta.stan',data = shark_stan_prep(shark_split_HC),init = shark_initfun,iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
 system(paste0("rclone sync ",file.path(getwd())," box:skinner/projects_analyses/Shark -L"))
 
 

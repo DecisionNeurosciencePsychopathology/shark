@@ -373,6 +373,7 @@ shark_stan_prep<-function(shark_split=NULL){
     nS=nS,nT=nT,
     grp_dep=array(0,dim=c(nS)),grp_ide=array(0,dim = c(nS)),grp_att=array(0,dim=c(nS)),
     choice=array(0,dim=c(nS,nT,2)),
+    rt=array(0,dim=c(nS,nT,2)),
     motorchoice=array(0,dim=c(nS,nT,2)),
     state_2=array(0,dim=c(nS,nT)),
     shark=array(0,dim=c(nS,nT)), 
@@ -392,6 +393,8 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
     shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1)-1 #Choice is 0 or 1
     shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2)-1
+    shark_stan$rt[s,1:nrow(dfx),1]<-(as.numeric(dfx$rts1)) 
+    shark_stan$rt[s,1:nrow(dfx),2]<-(as.numeric(dfx$rts2)) 
     shark_stan$state_2[s,1:nrow(dfx)]<-dfx$state-1 #State is 1 or 2
     shark_stan$reward[s,1:nrow(dfx)]<-as.numeric(dfx$RewardType=="Reward") #Reward is 0 or 1
     shark_stan$shark[s,1:nrow(dfx)]<-as.numeric(dfx$ifSharkBlock==TRUE) #SharkBlock is 0 or 1
@@ -423,8 +426,8 @@ shark_stan_prep<-function(shark_split=NULL){
 }
 
 run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="default",assignresult=T,add_args=NULL,add_data=NULL,forcererun=F,skipthis=F,
-                         savepath="stan_scripts/stan_output",pars=NULL,iter=NULL,chains=NULL,open_shinystan=F){
-  if(stan_args=="default"){stan_arg<-list(verbose=FALSE,save_warmup=FALSE,
+                         savepath="stan_scripts/stan_output",pars=NULL,iter=NULL,chains=NULL,open_shinystan=F,...){
+  if(stan_args=="default"){stan_arg<-list(verbose=FALSE,save_warmup=FALSE,...,
                                           pars=c('lp_','prev_choice','tran_count','tran_type'),chains = 4,
                                           include=FALSE,iter=5000,control=list(adapt_delta=0.99,stepsize=.01))}else{stan_arg<-stan_args}
   if(!is.null(pars)){stan_arg$pars<-pars}; if(!is.null(iter)){stan_arg$iter<-iter}; if(!is.null(chains)){stan_arg$chains<-chains}; 
@@ -503,7 +506,32 @@ shark_get_log_lik<-function(extracted_fit=NULL){
 }
 
 
+shark_initfun <- function() {
+  list(
+    alpha_ddm_s1_m = runif(1, 1, 2),
+    alpha_ddm_s2_m = runif(1, 1, 2),
+    alpha_ddm_s1_s = runif(1, 0.5, 1),
+    alpha_ddm_s2_s = runif(1, 0.5, 1),
+    alpha_ddm_s1_raw = rnorm(nS,0,0.1),
+    alpha_ddm_s2_raw = rnorm(nS,0,0.1),
+    
+    non_dec_s1_m = runif(1, 0.1, 0.2),
+    non_dec_s2_m = runif(1, 0.1, 0.2),
+    non_dec_s1_s = runif(1, 0.05, 0.15),
+    non_dec_s2_s = runif(1, 0.05, 0.15),
+    non_dec_s1_raw = rnorm(nS,0,0.1),
+    non_dec_s2_raw = rnorm(nS,0,0.1)
+  )
+}
 
+
+shark_getpar<-function(dx){
+  list(alpha_ddm_s1=dx$alpha_ddm_s1_m + (dx$alpha_ddm_s1_s * dx$alpha_ddm_s1_raw),
+       alpha_ddm_s2=dx$alpha_ddm_s2_m + (dx$alpha_ddm_s2_s * dx$alpha_ddm_s2_raw),
+       non_dec_s1=dx$non_dec_s1_m + (dx$non_dec_s1_s * dx$non_dec_s1_raw),
+       non_dec_s2=dx$non_dec_s2_m + (dx$non_dec_s2_s * dx$non_dec_s2_raw),
+       dx=dx)
+}
 
 
 
