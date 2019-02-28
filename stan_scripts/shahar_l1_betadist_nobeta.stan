@@ -2,94 +2,132 @@ data {
   int<lower=1> nT;
   int<lower=1> nS;
   int<lower=0,upper=1> choice[nS,nT,2]; 
+  real rt[nS,nT,2]; 
   int<lower=-1,upper=1> motorchoice[nS,nT,2]; 
   int<lower=0,upper=1> reward[nS,nT];
   int<lower=1,upper=2> state_2[nS,nT]; 
   int missing_choice[nS,nT,2];
   int skip_choice[nS,nT,2];
-  //int missing_reward[nS,nT];
- // int<lower=0,upper=1> factorizedecay;
 }
 
 parameters {
+  //rl
   real alpha_m;
-  real<lower=0> alpha_s;
-  
-  real beta_1_m;
-  real<lower=0> beta_1_s;
-  
-  real beta_2_m;
-  real<lower=0> beta_2_s;
-  
   real omega_m;
-  real<lower=0> omega_s;
-  //real lambda_m;
-  //real<lower=0> lambda_s;
   real pers_m;
-  real<lower=0> pers_s;
   real Mo_pers_m;
-  real<lower=0> Mo_pers_s;
-  //DO NOT USE THIS HORRIBLE IDEA
-  //real omega_m;
-  //real<lower=0> omega_s;
   
+  real<lower=0> alpha_s;
+  real<lower=0> omega_s;
+  real<lower=0> pers_s;
+  real<lower=0> Mo_pers_s;
+  
+  //ddm
+  real alpha_ddm_s1_m;
+  real beta_ddm_s1_m;
+  real non_dec_s1_m;
+  
+  real alpha_ddm_s2_m;
+  real beta_ddm_s2_m;
+  real non_dec_s2_m;
+
+  real<lower=0> alpha_ddm_s1_s;
+  real<lower=0> beta_ddm_s1_s;
+  real<lower=0> non_dec_s1_s;
+  
+  real<lower=0> alpha_ddm_s2_s;
+  real<lower=0> beta_ddm_s2_s;
+  real<lower=0> non_dec_s2_s;
+  
+  // alpha_ddm_s1
+  // beta_ddm_s1
+  // non_dec_s1
+  // alpha_ddm_s2
+  // beta_ddm_s2
+  // non_dec_s2
+  
+  //scaling zs
   vector[nS] alpha_raw;
-  vector[nS] beta_1_raw;
   vector[nS] omega_raw;
-  vector[nS] beta_2_raw;
-  //vector[nS] lambda_raw;
   vector[nS] pers_raw;
   vector[nS] Mo_pers_raw;
-  //vector[nS] omega_raw;
   
- 
+  vector[nS] alpha_ddm_s1_raw;
+  vector[nS] beta_ddm_s1_raw;
+  vector[nS] non_dec_s1_raw;
+  
+  vector[nS] alpha_ddm_s2_raw;
+  vector[nS] beta_ddm_s2_raw;
+  vector[nS] non_dec_s2_raw;
+  
   
 }
 
 transformed parameters {
 
+  
   //define transformed parameters
   vector<lower=0,upper=1>[nS] alpha;
-  vector[nS] beta_1;
   vector<lower=0,upper=1>[nS] omega;
-  vector[nS] beta_2;
-  
-  vector[nS] beta_1_MF;
-  vector[nS] beta_1_MB;
-  
   vector[nS] alpha_normal;
-  vector[nS] beta_1_normal;
   vector[nS] omega_normal;
-  vector[nS] beta_2_normal;
-  
   vector[nS] pers;
   vector[nS] Mo_pers;
+  
+  vector[nS] alpha_ddm_s1;
+  vector[nS] alpha_ddm_s1_n;
+  vector[nS] beta_ddm_s1;
+  vector<lower=0>[nS] non_dec_s1;
+  vector[nS] non_dec_s1_n;
+  
+  vector<lower=0>[nS] alpha_ddm_s2;
+  vector[nS] alpha_ddm_s2_n;
+  vector[nS] beta_ddm_s2;
+  vector<lower=0>[nS] non_dec_s2;
+  vector[nS] non_dec_s2_n;
+  
+  
 
-  //create transformed parameters using non-centered parameterization for all
-  // and logistic transformation for alpha & lambda (range: 0 to 1)
   alpha_normal = alpha_m + (alpha_s*alpha_raw);
-  beta_1_normal = beta_1_m + (beta_1_s * beta_1_raw);
-  beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
- 
-  omega_normal = omega_m + (omega_s * omega_raw);
+  omega_normal = omega_m + (omega_s*omega_raw);
   
   pers = pers_m + pers_s*pers_raw;
   Mo_pers = Mo_pers_m + Mo_pers_s * Mo_pers_raw;
   
+  beta_ddm_s1 = beta_ddm_s1_m + (beta_ddm_s1_s * beta_ddm_s1_raw);
+  beta_ddm_s2 = beta_ddm_s2_m + (beta_ddm_s2_s * beta_ddm_s2_raw);
+ 
+  alpha_ddm_s1_n = alpha_ddm_s1_m + (alpha_ddm_s1_s * alpha_ddm_s1_raw);
+  alpha_ddm_s2_n = alpha_ddm_s2_m + (alpha_ddm_s2_s * alpha_ddm_s2_raw);
+  
+  non_dec_s1_n = (non_dec_s1_m + (non_dec_s1_s * non_dec_s1_raw));
+  non_dec_s2_n = (non_dec_s2_m + (non_dec_s2_s * non_dec_s2_raw));
+  
+ 
+  // for (s in 1:nS) {
+  // non_dec_s1[s] = 0.2;
+  // non_dec_s2[s] = 0.2;
+  // }
+  // print("alpha_s1")
+  // print(alpha_ddm_s1_m)
+  // print(alpha_ddm_s1_s)
+  // print(alpha_ddm_s1_raw)
+  // print("END")
+  // 
+  
+  
   alpha = inv_logit(alpha_normal);
-  beta_2 = exp(beta_2_normal);
-  beta_1 = exp(beta_1_normal);
   omega = inv_logit(omega_normal);
   
-  for(S in 1:nS) {
-    beta_1_MF[S] = (1-omega[S]) * beta_1 [S];
-    beta_1_MB[S] = omega[S] * beta_1 [S];
-  }
-  
+  non_dec_s1 = exp(non_dec_s1_n)/10;
+  non_dec_s2 = exp(non_dec_s2_n)/10;
+
+  alpha_ddm_s1 = exp(alpha_ddm_s1_n);
+  alpha_ddm_s2 = exp(alpha_ddm_s2_n);
 }
 
 model {
-  //define variables
+ //define variables
   int prev_choice;
   int prev_motor;
   //int tran_count;
@@ -99,34 +137,56 @@ model {
   real delta_2;
   real Q_TD[2];
   real Q_MB[2];
+  real Q_S1[2];
   real Q_2[2,2];
+  real drift[2];
+  real P_wiener[2];
   real alpha_b; real beta_b;real mu_b;
+ 
   
   //define priors
-  alpha_m ~ normal(0,2.5);
-  beta_1_m ~ normal(0,5);
-  omega_m ~ normal(0,5);
-  beta_2_m ~ normal(0,5);
+  alpha_m ~ normal(0,10);
+  // beta_1_m ~ normal(0,2.5);
+  omega_m ~ normal(0,10);
+  // beta_1_MF_m ~ normal(0,5);
+  // beta_1_MB_m ~ normal(0,5);
+  // beta_2_m ~ normal(0,5);
   //lambda_m ~ normal(0,2);
-  pers_m ~ normal(0,2.5);
-  Mo_pers_m ~ normal(0,2.5);
-  
-  alpha_s ~ cauchy(0,1);
-  beta_1_s ~ cauchy(0,1);
-  omega_s ~ cauchy(0,1);
-  beta_2_s ~ cauchy(0,1);
-  //lambda_s ~ cauchy(0,1);
-  pers_s ~ cauchy(0,1);
-  Mo_pers_s ~ cauchy(0,1);
+  pers_m ~ normal(0,10);
+  Mo_pers_m ~ normal(0,10);
   
   alpha_raw ~ normal(0,1);
-  beta_1_raw ~ normal(0,1);
   omega_raw ~ normal(0,1);
-  beta_2_raw ~ normal(0,1);
-  //lambda_raw ~ normal(0,1);
   pers_raw ~ normal(0,1);
   Mo_pers_raw ~ normal(0,1);
   
+  alpha_ddm_s1_m ~ normal(0,10); 
+  alpha_ddm_s2_m ~ normal(0,10);
+  
+  non_dec_s1_m ~ normal(0.2,0.1);
+  non_dec_s2_m ~ normal(0.2,0.1);
+  
+  beta_ddm_s1_m ~ normal(0,10);
+  beta_ddm_s2_m ~ normal(0,10);
+  
+  alpha_s ~ cauchy(0,1);
+  pers_s ~ cauchy(0,1);
+  Mo_pers_s ~ cauchy(0,1);
+  
+  alpha_ddm_s1_s ~ cauchy(0,1);
+  beta_ddm_s1_s ~ cauchy(0,1);
+  non_dec_s1_s ~ cauchy(0,1);
+  alpha_ddm_s2_s ~ cauchy(0,1);
+  beta_ddm_s2_s ~ cauchy(0,1);
+  non_dec_s2_s ~ cauchy(0,1);
+  
+  alpha_ddm_s1_raw ~ normal(0,1);
+  beta_ddm_s1_raw ~ normal(0,1);
+  non_dec_s1_raw ~ normal(0,1);
+  alpha_ddm_s2_raw ~ normal(0,1);
+  beta_ddm_s2_raw ~ normal(0,1);
+  non_dec_s2_raw ~ normal(0,1);
+  //print("New SUB")
   for (s in 1:nS) {
   
   //set initial values
@@ -142,52 +202,48 @@ model {
   alpha_b=1;
   beta_b=1;
   
+  
+  //This is the birthday model, happy birthday me lol.
+    
     for (t in 1:nT) {
-      //use if not missing 1st stage choice
       
-      //Use Beta distribution instead of fix value for trans p; Let's update it before hand;
       mu_b = ((alpha_b) / (alpha_b+beta_b));
       Q_MB[1] =  ((mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (1-mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
       Q_MB[2] =  ((1-mu_b)*fmax(Q_2[1,1],Q_2[1,2]) + (mu_b)*fmax(Q_2[2,1],Q_2[2,2]));
-        
-      
+      Q_S1[1] = omega[s] * Q_MB[1] + (1-omega[s]) * Q_TD[1] + (pers[s]*prev_choice) + (Mo_pers[s]*prev_motor);
+      Q_S1[2] = omega[s] * Q_MB[2] + (1-omega[s]) * Q_TD[2] + (pers[s]*prev_choice) + (Mo_pers[s]*prev_motor);
       if (missing_choice[s,t,1]==0) {
-         
          if(skip_choice[s,t,1]==0) {
-        //print(beta_1_MF[s,t]);
-         choice[s,t,1] ~ bernoulli_logit( 
-          
-          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s]) + (pers[s]*prev_choice) + (Mo_pers[s]*prev_motor)
-          
-          );
+           if(choice[s,t,1]) {drift[1] = beta_ddm_s1[s]*(Q_S1[2] - Q_S1[1]);}else{drift[1] = -(beta_ddm_s1[s]*(Q_S1[2] - Q_S1[1]));}
+            // print(non_dec_s2_m)
+            // print(non_dec_s2_s)
+            // print(non_dec_s2_raw[s])
+            // print("NEXT--- NEXT")
+            //print("test")
+           P_wiener[1] = wiener_lpdf(rt[s,t,1] | alpha_ddm_s1[s], non_dec_s1[s], 0.5, drift[1]);
+           choice[s,t,1] ~ bernoulli_logit(P_wiener[1]);
          }
          
-        prev_choice = 2*choice[s,t,1]-1; //choice is 1 and 0; 1 should be 1 and 0 should be -1
-        prev_motor = motorchoice[s,t,1]; //motorchoice is already 1, -1
-        //use if not missing 2nd stage choice
+         prev_choice = 2*choice[s,t,1]-1; //choice is 1 and 0; 1 should be 1 and 0 should be -1
+         prev_motor = motorchoice[s,t,1]; //motorchoice is already 1, -1
+
         if (missing_choice[s,t,2]==0) {
           if(skip_choice[s,t,2]==0) {
-          choice[s,t,2] ~ bernoulli_logit( ((Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])*beta_2[s]) );
+            if(choice[s,t,2]) {
+              drift[2] = (beta_ddm_s2[s]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]));
+            }else{
+              drift[2] = -((beta_ddm_s2[s]*(Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])));}
+              
+            P_wiener[2]= wiener_lpdf(rt[s,t,2] | alpha_ddm_s2[s], non_dec_s2[s], 0.5, drift[2]);
+            choice[s,t,2] ~ bernoulli_logit(P_wiener[2]);
           }
-          //use if not missing 2nd stage reward
-          //if (missing_reward[s,t]==0) {
-             //prediction errors
-             //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s]-Q_TD[choice[s,t,1]+1]; 
-             delta_2 = reward[s,t]/alpha[s] - Q_2[state_2[s,t],choice[s,t,2]+1];
+    
+             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
+             delta_2 = reward[s,t] - Q_2[state_2[s,t],choice[s,t,2]+1];
              
-             //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
-             // expectation of transition, otherwise update 2nd expectation
-             //tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 1 : 2;
-             //tran_type[tran_count] = tran_type[tran_count] + 1;
-             
-             //update chosen values
-             //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1)+(1*delta_2);
-             
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1) + (1*alpha[s]*delta_2);
              Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
             
-             
              //update unchosen TD & second stage values
              Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
              Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
@@ -200,7 +256,7 @@ model {
              
              if (choice[s,t,1]==0 && state_2[s,t]==2) {beta_b = beta_b + 1;}   
              if (choice[s,t,1]==1 && state_2[s,t]==1) {beta_b = beta_b + 1;}
-          //} //if missing 2nd stage reward: do nothing
+         
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
           delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
@@ -210,6 +266,7 @@ model {
           Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
           Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
           Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
+         
           //MB update of first stage values based on second stage values, so don't change //not true...update happened post 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values & update previous choice
@@ -231,6 +288,7 @@ generated quantities {
   // 1) values and choices used to calculate probability, rather than fitting values to choices
   // 2) no priors, etc.- uses estimated pararamter values from model block
   real log_lik[nS,nT,2]; //log likelihood- must be named this
+  real P_wiener[nS,nT,2];
   int prev_choice;
   int prev_motor;
   //int tran_count;
@@ -240,11 +298,12 @@ generated quantities {
   real delta_2[nS,nT];
   real Q_TD[nS,nT+1,2];
   real Q_MB[nS,nT,2];
+  real Q_S1[nS,nT,2];
   real Q_2[nS,nT+1,2,2];
   real alpha_b[nS,nT+1]; 
   real beta_b[nS,nT+1];
   real mu_b[nS,nT];
- 
+  real drift[nS,nT,2];
   
   for (s in 1:nS) {
     for (i in 1:2) {
@@ -265,26 +324,52 @@ generated quantities {
      
       Q_MB[s,t,1] =  ((mu_b[s,t])*fmax(Q_2[s,t,1,1],Q_2[s,t,1,2]) + (1-mu_b[s,t])*fmax(Q_2[s,t,2,1],Q_2[s,t,2,2]));
       Q_MB[s,t,2] =  ((1-mu_b[s,t])*fmax(Q_2[s,t,1,1],Q_2[s,t,1,2]) + (mu_b[s,t])*fmax(Q_2[s,t,2,1],Q_2[s,t,2,2]));
+      Q_S1[s,t,1] = omega[s] * Q_MB[s,t,1] + (1-omega[s]) * Q_TD[s,t,1];
+      Q_S1[s,t,2] = omega[s] * Q_MB[s,t,2] + (1-omega[s]) * Q_TD[s,t,2];
       //print (alpha_b[s,t])
       //print (beta_b[s,t])
       if (missing_choice[s,t,1]==0) {
-        //print( ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor) )
+
         if(skip_choice[s,t,1]==0) {
-        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
-        } else {log_lik[s,t,1] = 0;}
+          
+          if(choice[s,t,1]) {
+            drift[s,t,1] = beta_ddm_s1[s]*(Q_S1[s,t,2] - Q_S1[s,t,1]);
+            }else{
+              drift[s,t,1] = -(beta_ddm_s1[s]*(Q_S1[s,t,2] - Q_S1[s,t,1]));
+              }
+            P_wiener[s,t,1] = wiener_lpdf(rt[s,t,1] | alpha_ddm_s1[s], non_dec_s1[s], 0.5, drift[s,t,1]);
+            log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | P_wiener[s,t,1] );
+
+        } else {
+          log_lik[s,t,1] = 0;
+          P_wiener[s,t,1] = 0;
+          drift[s,t,1] = 0;
+          }
+          
         prev_choice = (2*choice[s,t,1])-1; //1 if choice 2, -1 if choice 1
         prev_motor = motorchoice[s,t,1];
         
         if (missing_choice[s,t,2]==0) {
           if(skip_choice[s,t,2]==0) {
-          log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])*beta_2[s]));
-          } else {log_lik[s,t,2] = 0;}
+             if(choice[s,t,2]) {
+              drift[s,t,2] = (beta_ddm_s2[s]*(Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1]));
+            }else{
+              drift[s,t,2] = -((beta_ddm_s2[s]*(Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])));}
+             
+             P_wiener[s,t,2] = wiener_lpdf(rt[s,t,2] | alpha_ddm_s2[s], non_dec_s2[s], 0.5, drift[s,t,2] );
+             log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] |  P_wiener[s,t,2] );
+             
+          } else {
+            log_lik[s,t,2] = 0;
+            P_wiener[s,t,2] = 0;
+            drift[s,t,2] = 0;
+            }
           //use if not missing 2nd stage reward
           //if (missing_reward[s,t]==0) {
             //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s] - Q_TD[s,t,choice[s,t,1]+1]; 
-             delta_2[s,t] = reward[s,t]/alpha[s] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
+             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] - Q_TD[s,t,choice[s,t,1]+1]; 
+             delta_2[s,t] = reward[s,t] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
              // expectation of transition, otherwise update 2nd expectation
@@ -293,7 +378,7 @@ generated quantities {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*(delta_1+lambda[s]*delta_2);
-             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s]*delta_1[s,t])+(1*delta_2[s,t]);
+             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s]*delta_1[s,t])+(1*alpha[s]*delta_2[s,t]);
              Q_2[s,t+1,state_2[s,t],choice[s,t,2]+1] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2[s,t];
             
              
@@ -317,6 +402,8 @@ generated quantities {
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
           log_lik[s,t,2] = 0;
+          P_wiener[s,t,2] = 0;
+          drift[s,t,2] = 0;
           delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]-Q_TD[s,t,choice[s,t,1]+1]; 
           delta_2[s,t] = -998;
           Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + alpha[s]*delta_1[s,t];
@@ -333,6 +420,10 @@ generated quantities {
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values
       log_lik[s,t,1] = 0;
       log_lik[s,t,2] = 0;
+      P_wiener[s,t,1] = 0;
+      P_wiener[s,t,2] = 0;
+      drift[s,t,1] = 0;
+      drift[s,t,2] = 0;
       Q_TD[s,t+1,1] = (1-alpha[s])*Q_TD[s,t,1];
       Q_TD[s,t+1,2] = (1-alpha[s])*Q_TD[s,t,2];
       Q_2[s,t+1,1,1] = (1-alpha[s])*Q_2[s,t,1,1];

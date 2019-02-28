@@ -153,12 +153,12 @@ car::Anova(m1_S_1, type = 'III')
 
 m1shark <- glmer(Stay1_lead ~ 
                    Stay1  + SameKey1_lead + 
-                   Transition * RewardType * GROUP1245 +
-                   Transition * RewardType * BlockType +
-                   Transition * GROUP1245 * BlockType +
-                   RewardType * GROUP1245 * BlockType +
-                   #Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
-                   + (RewardType * Transition | ID/Run),
+                   # Transition * RewardType * GROUP1245 +
+                   # Transition * RewardType * BlockType +
+                   # Transition * GROUP1245 * BlockType +
+                   # RewardType * GROUP1245 * BlockType +
+                   Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
+                   + (RewardType * Transition | ID),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
@@ -186,8 +186,8 @@ rtshark1<-lme4::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + scale(rts2_scal
                        # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
                        # RewardType * GROUP1245 * BlockType +
-                       (Transition + RewardType + BlockType + depress)^4 +   #Use for 4 ways
-                       (1 | ID/Run),REML = F,
+                       (Transition + RewardType + BlockType + GROUP1245)^2 +   #Use for 4 ways
+                       (Transition | ID/Run),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                      control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
                      )

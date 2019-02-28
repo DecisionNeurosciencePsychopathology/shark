@@ -21,7 +21,23 @@ shark_stan<-shark_stan_prep(shark_split_all)
 # if(file.exists("stanmodeloutput.rdata")){
 #   load("stanmodeloutput.rdata")
 # } else{allmodels<-new.env()}
-
+dfx<-read.csv("./scheck/all_wexcludes_subj_data_V1_2018-12-13.csv",stringsAsFactors = F)
+dfx$step_one_chosen_stim[which(is.na(dfx$step_one_response))]<-NA
+dfx$step_one_rt[which(is.na(dfx$step_one_response))]<-NA
+dfx$step_two_chosen_stim[which(is.na(dfx$step_two_response))]<-NA
+dfx$step_two_rt[which(is.na(dfx$step_two_response))]<-NA
+dfx$choice1<-as.numeric(dfx$step_one_chosen_stim)
+dfx$choice2<-as.numeric(dfx$step_two_chosen_stim)
+dfx$rts1<-as.numeric(dfx$step_one_rt)/1000
+dfx$rts2<-as.numeric(dfx$step_two_rt)/1000
+dfx$state<-as.numeric(dfx$step_two_state)
+dfx$RewardType<-ifelse(as.logical(dfx$step_two_reward),"Reward","No Reward")
+dfx$keycode1<-as.numeric(dfx$step_one_response=="left")
+dfx$keycode2<-as.numeric(dfx$step_two_response=="left")
+dfx$GROUP1245<-0
+dfx$sharkattack<-FALSE
+dfx$ifSharkBlock<-FALSE
+vb_sp<-split(dfx,dfx$ID)
 
 stop("STOP BEFORE RUNNING ALL MODELS")
 ############################HC Modeling:############################
@@ -153,8 +169,14 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 ###Currently the best script is probably otto_l1_betadist_mp.stan
+##We try this with Vanessa's data
+run_shark_stan(data_list=shark_stan_prep(vb_sp),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
+               modelname="VB_otto_l1_betadist_mp",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
-#Okay, now we clean up and try repara beta...
+
+
+l#Okay, now we clean up and try repara beta...
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp_expbeta.stan',add_data = list(factorizedecay=0),
                modelname="SH_otto_l1_betadist_mp_expBeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
@@ -206,6 +228,10 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts
                modelname="otto_jc2_l1_betadist_mp_ubeta2_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+
+
+
+
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_jc_l1_betadist_mp_spBeta.stan',add_data = list(factorizedecay=0),
                modelname="otto_jc_l1_betadist_mp_spBeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
@@ -213,6 +239,8 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/ottojcmod_betadist_ubeta_wShark.stan',add_data = list(factorizedecay=0),
                modelname="ottojcmod_betadist_ubeta_wShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
+
+
 
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/ottojcmod_betadist_ubeta_wShark.stan',add_data = list(factorizedecay=0),
                modelname="ottojcmod_betadist_ubeta_wdShark_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
@@ -228,39 +256,49 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
 
 #######Let's go back to the basics:
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_l1_betadist_mp.stan',add_data = list(factorizedecay=0),
-               modelname="otto_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="otto_l1_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ubeta1.stan',add_data = list(factorizedecay=0),
-               modelname="otto_jc_l1_betadist_mp_ubeta1_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,
+               modelname="otto_jc_l1_betadist_mp_ubeta1_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 
 
-for (grp in c("1","2")){
-  shark_split_grp<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)==grp})]
-  run_shark_stan(data_list=shark_stan_prep(shark_split_grp),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
-                 modelname=paste0("otto_jc_l1_betadist_mp_ogbeta_",grp),stan_args="default",assignresult=T,iter = 4000,forcererun = F,
-                 savepath="stan_scripts/stan_output",open_shinystan=F)
-}
 
-for (grp in c("4","5")){
-  shark_split_grp<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)==grp})]
-  run_shark_stan(data_list=shark_stan_prep(shark_split_grp),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
-                 modelname=paste0("otto_jc_l1_betadist_mp_ogbeta_",grp),stan_args="default",assignresult=T,iter = 4000,forcererun = F,
-                 savepath="stan_scripts/stan_output",open_shinystan=F)
-}
 
 nS<-length(shark_split_HC)
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/shahar_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
-               modelname="shahar_l1_betadist_mp_ogbeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,init= shark_initfun,chains = 4,
+               modelname="shahar_l1_betadist_mp_ogbeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,init= shark_initfun,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/shahar_mod_l1_betadist_nobeta.stan',add_data = list(factorizedecay=0),
+               modelname="shahar_mod_l1_betadist_nobeta_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = F,init= shark_initfun,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
 
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/shahar_l1_betadist_nobeta.stan',add_data = list(factorizedecay=0),
+               modelname="shahar_l1_betadist_nobeta_HC",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,init=0,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/shahar_jcmod_l1_betadist_nobeta.stan',add_data = list(factorizedecay=0),
+               modelname="shahar_jcmod_l1_betadist_nobeta_HC",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(vb_sp),stanfile='stan_scripts/shahar_jcmod_l1_betadist_nobeta.stan',add_data = list(factorizedecay=0),
+               modelname="shahar_jcmod_l1_betadist_nobeta_VB",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_SH.stan',add_data = list(factorizedecay=0),
+               modelname="RL_betadist_mp_SH_all",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+rxj<-shark_mkinit(1)
 optimizing()
-fitxr <- stan(file='stan_scripts/shahar_l1_betadist_mp_ogbeta.stan',data = shark_stan_prep(shark_split_HC),init = shark_initfun,iter=1, chains=1, seed=596858228, algorithm="Fixed_param")
-system(paste0("rclone sync ",file.path(getwd())," box:skinner/projects_analyses/Shark -L"))
+fitxr <- stan(file="stan_scripts/shahar_jcmod_l1_betadist_nobeta.stan",data = shark_stan_prep(shark_split_HC),iter=1, chains=1,seed=424546151, algorithm="Fixed_param")
 
+
+system(paste0("rclone sync ",file.path(getwd())," box:skinner/projects_analyses/Shark -L"))
+rstan::expose_stan_functions(fitxr)
 
 
 

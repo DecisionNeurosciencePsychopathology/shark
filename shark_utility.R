@@ -388,9 +388,11 @@ shark_stan_prep<-function(shark_split=NULL){
     dfx<-shark_split[[s]]
     shark_stan$ID[s]<-unique(as.character(dfx$ID))
     shark_stan$Group[s]<-unique(as.character(dfx$GROUP1245))
+    shark_stan$grp_hc[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="1")
     shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="2")
     shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="4")
     shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
+    shark_stan$grp_clinical[s]=as.numeric(unique(as.character(dfx$GROUP1245))!="1")
     shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1)-1 #Choice is 0 or 1
     shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2)-1
     shark_stan$rt[s,1:nrow(dfx),1]<-(as.numeric(dfx$rts1)) 
@@ -401,17 +403,20 @@ shark_stan_prep<-function(shark_split=NULL){
     shark_stan$motorchoice[s,1:nrow(dfx),1]<-as.numeric(ifelse(dfx$keycode1==1,1,-1)) 
     shark_stan$motorchoice[s,1:nrow(dfx),2]<-as.numeric(ifelse(dfx$keycode2==1,1,-1)) 
     #Deal with missing trials;
-    miss_c1<-which(is.na(dfx$choice1) )
-    miss_c2<-which(is.na(dfx$choice2) )
+    miss_c1<-c(which(is.na(dfx$choice1) ),which(!1:nT %in% 1:nrow(dfx)) )
+    miss_c2<-c(which(is.na(dfx$choice2) ),which(!1:nT %in% 1:nrow(dfx)) )
     
-    skip_c1<-which(dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack))
-    skip_c2<-which(dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack))
+    skip_c1<-c(which(dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
+    skip_c2<-c(which(dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
     #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0
+    shark_stan$rt[s,miss_c1,1]=0
+    shark_stan$rt[s,miss_c2,2]=0
     shark_stan$motorchoice[s,miss_c1,1]=0
     shark_stan$motorchoice[s,miss_c2,2]=0
-    
+    shark_stan$reward[s,miss_c1]=0
+    shark_stan$reward[s,miss_c2]=0
     #shark_stan$reward[s,miss_any]=0
     shark_stan$state_2[s,miss_c2]=1 #This is to make sure that state_2 does not contain any NAs because stan doesn't like it
     shark_stan$missing_choice[s,miss_c1,1]=1
@@ -422,6 +427,7 @@ shark_stan_prep<-function(shark_split=NULL){
     #shark_stan$missing_reward[s,miss_any]=1
     dfx<-NULL
   }
+  shark_stan$Group<-as.numeric(as.factor(shark_stan$Group))-1
   return(shark_stan)
 }
 
@@ -510,8 +516,8 @@ shark_initfun <- function() {
   list(
     alpha_ddm_s1_m = runif(1, 1, 2),
     alpha_ddm_s2_m = runif(1, 1, 2),
-    alpha_ddm_s1_s = runif(1, 0.5, 1),
-    alpha_ddm_s2_s = runif(1, 0.5, 1),
+    alpha_ddm_s1_s = runif(1, 0.5, 0.1),
+    alpha_ddm_s2_s = runif(1, 0.5, 0.1),
     alpha_ddm_s1_raw = rnorm(nS,0,0.1),
     alpha_ddm_s2_raw = rnorm(nS,0,0.1),
     
@@ -524,6 +530,45 @@ shark_initfun <- function() {
   )
 }
 
+shark_mkinit <- function(chainnum,nS,transform=T) {
+ lapply(1:chainnum,function(xc){
+   if(!transform){
+  list(
+     alpha_ddm_s1_m = 1.5,
+     alpha_ddm_s2_m = 1.5,
+     alpha_ddm_s1_s = 0.5,
+     alpha_ddm_s2_s = 0.5,
+     alpha_ddm_s1_raw = rep(0,nS),
+     alpha_ddm_s2_raw = rep(0,nS),
+     alpha_ddm_s1 = rep(0,nS),
+     
+     non_dec_s1_m = 0.2,
+     non_dec_s2_m = 0.2,
+     non_dec_s1_s = 0.1,
+     non_dec_s2_s = 0.1,
+     non_dec_s1_raw = rep(0,nS),
+     non_dec_s2_raw = rep(0,nS),
+     alpha_ddm_s2 = rep(0,nS)
+   )
+   }else {
+     list(
+       alpha_ddm_s1_m = 0.4054651,
+       alpha_ddm_s2_m = 0.4054651,
+       alpha_ddm_s1_s = -0.6931472,
+       alpha_ddm_s2_s = -0.6931472,
+       alpha_ddm_s1_raw = rep(0,nS),
+       alpha_ddm_s2_raw = rep(0,nS),
+       
+       non_dec_s1_m =  -1.609438,
+       non_dec_s2_m =  -1.609438,
+       non_dec_s1_s = -2.302585,
+       non_dec_s2_s = -2.302585,
+       non_dec_s1_raw = rep(0,nS),
+       non_dec_s2_raw = rep(0,nS)
+     )
+   }
+ })
+}
 
 shark_getpar<-function(dx){
   list(alpha_ddm_s1=dx$alpha_ddm_s1_m + (dx$alpha_ddm_s1_s * dx$alpha_ddm_s1_raw),
@@ -533,5 +578,5 @@ shark_getpar<-function(dx){
        dx=dx)
 }
 
-
+inv_logit<-function(x){( exp(x)/(1+exp(x)) )}
 

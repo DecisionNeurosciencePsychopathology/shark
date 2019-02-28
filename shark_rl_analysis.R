@@ -1,5 +1,21 @@
 #Shark RL Analysis
 
+#Double check to make sure the code isn't doing anything funky:
+
+
+tx<-shark_stan_prep(vb_sp)
+
+
+
+
+#For model evidence: We calculate the WAIC:
+
+get_summary_df(output_ls = SH_otto_l1_betadist_mp_expBeta_wShark_all,pars = c("beta_1_MB"),returnas = "data.frame",probs = 0.5)
+
+
+sum<-summary(SH_otto_l1_betadist_mp_expBeta_wShark_all$stanfit_SH_otto_l1_betadist_mp_expBeta_wShark_all,pars="beta_1_MB_",probs=0.5)$summary[,paste0(0.5*100,"%")]
+
+
 xr<-extract(ottojcmod_l1_betadist_mp_ubeta2_HC$stanfit_ottojcmod_l1_betadist_mp_ubeta2_HC)
 
 sapply(c(1,2,4,5),function(jx){mean(txjk[txjk$Group==jx,c("omega")])})
@@ -13,11 +29,15 @@ ubeta_HC<-shark_get_log_lik(stan_fitoutput = otto_jc_l1_betadist_mp_ubeta2_HC$st
 ubetaIndivi_HC<-shark_get_log_lik(stan_fitoutput = otto_jc_l1_betadist_mp_ubeta2indiv_HC$stanfit_otto_jc_l1_betadist_mp_ubeta2indiv_HC)
 spbeta_nm_HC<-shark_get_log_lik(stan_fitoutput = SH_otto_l1_betadist_mp_HC$stanfit_SH_otto_l1_betadist_mp_HC)
 
-lx<-data.frame(choice=shark_stan_HC$choice[12,,1],
+lx<-data.frame(choice=shark_stan_HC$choice[12,,a1],
                ub_hc=ubeta_HC[[12]]$stage1_loglik,
                ubi_hc=ubetaIndivi_HC[[12]]$stage1_loglik)
 
 omegas<-get_summary_df(output_ls = otto_jc2_l1_betadist_mp_ubeta2_all,pars = c("omega","omega_normal"),returnas = "data.frame",probs = 0.5)
+
+dt<-otto_l1_betadist_mp_HC$data_list
+cor(apply(ubeta$beta_1_MB,2,mean),apply(spbeta$beta_1_MB,2,mean))
+
 
 
 everyone<-lapply(shark_split_HC,function(dfx){
@@ -80,6 +100,24 @@ ggplot(data = all_Q_MB,aes(x=trial,y=value,color=variable)) + geom_line() + face
 
 Q_2_a<-apply(ox$Q_2,2:length(dim(ox$Q_2)),mean)
 
+mean_Q_2<-apply(stanfit_ext$Q_2,c(2,3,4,5),mean)
+
+
+
+trg<-do.call(rbind,lapply(1:2,function(mx){
+  do.call(rbind,lapply(1:2,function(rx){
+     or<-as.data.frame(t(mean_Q_2[,1:100,rx,mx]))
+     names(or)<-data_list$ID
+     or$Trial<-1:100
+     ora<-reshape2::melt(or,c("Trial"))
+     names(ora)<-c("Trial","ID",paste0("Q_2"))
+     ora$pl<-mx
+     ora$stage<-rx
+     return(ora)
+   })
+  )
+})
+)
 sx<-6
 dfx<-data.frame(S1C1=Q_2_a[sx,,1,1],S1C2=Q_2_a[sx,,1,2],S2C1=Q_2_a[sx,,2,1],S2C2=Q_2_a[sx,,2,2])
 dfx2<-data.frame(S1=apply(Q_2_a[sx,,1,],1,max),S2=apply(Q_2_a[sx,,2,],1,max))
@@ -98,9 +136,14 @@ plot(ab$choice[4,,1],ac[[4]]$stage1_loglik)
 
 
 stan_fit_oj<-ottojcmod_l1_betadist_mp_ubeta2_HC$stanfit_ottojcmod_l1_betadist_mp_ubeta2_HC
+stan_fit_oj<-otto_jc2_l1_betadist_mp_ubeta2_all$stanfit_otto_jc2_l1_betadist_mp_ubeta2_all
+stan_fit_oj<-otto_jc_l1_betadist_mp_spBeta_HC$stanfit_otto_jc_l1_betadist_mp_spBeta_HC
 data_list<-ottojcmod_l1_betadist_mp_ubeta2_HC$data_list
 pars <- c("alpha_m","alpha_s","beta_1_m","beta_1_s",
           "omega_m","omega_s","beta_2_m","beta_2_s")
+
+pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
+          "beta_2_m","pers_m")
 plot(stan_fit_oj, pars = pars,
      ask = TRUE, exact_match = TRUE, newpage = TRUE, plot = TRUE)
 
@@ -113,8 +156,12 @@ mean_loglike<-apply(exp(log_lik_x),c(2,3,4),mean)
 median_loglike<-apply(exp(log_lik_x),c(2,3,4),median)
 mean_Q_TD<-apply(stanfit_ext$Q_TD,c(2,3,4),mean)
 mean_Q_MB<-apply(stanfit_ext$Q_MB,c(2,3,4),mean)
+mean_Q_2<-apply(stanfit_ext$Q_2,c(2,3,4),mean)
+
+
 
 log_lik_df<-do.call(rbind,lapply(1:dim(log_lik_x)[2],function(subj){
+  state=data_list$state_2[subj,]
   data.frame(u_loglik_1=mean_loglike[subj,,1],
              u_loglik_2=mean_loglike[subj,,2],
              med_loglik_1=median_loglike[subj,,1],
@@ -123,22 +170,71 @@ log_lik_df<-do.call(rbind,lapply(1:dim(log_lik_x)[2],function(subj){
              Q_TD_2=mean_Q_TD[subj,1:100,2],
              Q_MB_1=mean_Q_MB[subj,1:100,1],
              Q_MB_2=mean_Q_MB[subj,1:100,2],
+             Q_2_1=sapply(1:100,function(t){mean_Q_2[subj,t,state[t],1]}),
+             Q_2_2=sapply(1:100,function(t){mean_Q_2[subj,t,state[t],2]}),
+             delta_2=mean_delta_2[subj,1:100],
              ID=data_list$ID[subj],
              choice_1=data_list$choice[subj,,1],
              choice_2=data_list$choice[subj,,2],
              reward=data_list$reward[subj,],
-             state=data_list$state_2[subj,],
+             state=state,
+             miss_1=data_list$missing_choice[subj,,1],
+             beta_2=apply(stanfit_ext$beta_2,c(2),mean)[subj],
              Trial=1:100)
 }))
-cor(log_lik_df$u_loglik_1,log_lik_df$choice_1)
-cor(log_lik_df$u_loglik_2,log_lik_df$choice_2)
 
+
+log_lik_df[log_lik_df==-999]<-NA
 lik_sp<-split(log_lik_df,log_lik_df$ID)
 
 
+sapply(lik_sp,function(gx){
+  cor(gx$u_loglik_1,gx$choice_1)
+  #cor(gx$u_loglik_2,gx$choice_2)
+})
+
+dfx<-lik_sp$`220104`
+dfx<-lik_sp$`212020`
+dfx<-lik_sp$`213163`
+
+subj<-22
+cbind(mean_Q_2[subj,1:100,1,],mean_Q_2[subj,1:100,2,],mean_delta_2[subj,1:100],data_list$choice[subj,1:100,2],data_list$reward[subj,],data_list$state_2[subj,1:100],data_list$skip_choice[subj,1:100,2])
+IDx<-data_list$ID[subj]
+ggplot(lik_sp[[IDx]],aes(Trial,u_loglik_2))+
+  geom_point(aes(Trial,inv_logit((Q_2_2-Q_2_1)*beta_2))) + geom_point(aes(Trial,delta_2,color=as.factor(choice_2)))+
+  geom_line(aes(Trial,Q_2_1,color="Q_1")) + geom_line(aes(Trial,Q_2_2,color="Q_2"))+ 
+  geom_point(aes(Trial,choice_2,color=as.factor(choice_1==1),size=reward/2)) + facet_wrap(~state)
+
+
+ggplot(lik_sp[["202200"]],aes(Trial,u_loglik_2))+geom_point(aes(Trial,u_loglik_2,color="loglik"))+geom_point(aes(Trial,choice_2,color=pl)) + facet_wrap(~as.factor(state))
+
+
+for (grp in c("1","2")){
+  shark_split_grp<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)==grp})]
+  run_shark_stan(data_list=shark_stan_prep(shark_split_grp),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
+                 modelname=paste0("otto_jc_l1_betadist_mp_ogbeta_",grp),stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+                 savepath="stan_scripts/stan_output",open_shinystan=F)
+}
+
+for (grp in c("4","5")){
+  shark_split_grp<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)==grp})]
+  run_shark_stan(data_list=shark_stan_prep(shark_split_grp),stanfile='stan_scripts/otto_jc_l1_betadist_mp_ogbeta.stan',add_data = list(factorizedecay=0),
+                 modelname=paste0("otto_jc_l1_betadist_mp_ogbeta_",grp),stan_args="default",assignresult=T,iter = 4000,forcererun = F,
+                 savepath="stan_scripts/stan_output",open_shinystan=F)
+}
+
+
+allgrps<-lapply(c("1","2","4","5"), function(grp){
+  curstan<-extract(get(paste0("otto_jc_l1_betadist_mp_ogbeta_",grp))[[paste0("stanfit_otto_jc_l1_betadist_mp_ogbeta_",grp)]])
+  list(extracted=curstan,
+       beta_1_MB_df=data.frame(value=as.vector(curstan$beta_1_MB),
+                               grp=grp))
+})
 
 
 
+ggplot(beta_1_MB_df,aes(x=inv_logit(value)))+geom_histogram(bins = 30)+facet_wrap(~grp)
+#+geom_line(aes(Trial,Q_TD_1,color="1"))+geom_line(aes(Trial,Q_TD_2,color="2"))
 
 
 
