@@ -306,7 +306,7 @@ shark_fsl<-function(dfx=NULL) {
   #Task Variables:
   dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$SharkBlock_lag<-dplyr::lag(dfx$SharkBlock)
-  dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(-1,1))))
+  dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$Tran_lag<-dplyr::lag(dfx$Tran)
   dfx$Reinf<-as.numeric(as.character(plyr::mapvalues(dfx$ifReinf,from=(c("TRUE","FALSE")),to=c(1,-1))))
   dfx$Reinf_lag<-dplyr::lag(dfx$Reinf)
@@ -316,6 +316,9 @@ shark_fsl<-function(dfx=NULL) {
   
   dfx$ModelBaseShark<-dfx$Tran * dfx$Reinf * dfx$SharkBlock
   dfx$ModelBase_lagShark<-dfx$ModelBase_lag * dfx$SharkBlock
+  
+  dfx$RareNotReinf<-as.numeric(as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))
+  dfx$RareNotReinf_lag<-dplyr::lag(dfx$RareNotReinf)
   
   dfx_sp<-split(dfx,dfx$Block)
   shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
@@ -338,7 +341,7 @@ shark_fsl<-function(dfx=NULL) {
                                       duration=dfx$rts2,
                                       run=dfx$Run,
                                       trial=dfx$Trial),
-                 Feedback=data.frame(event="Feedback",
+                 Outcome=data.frame(event="Outcome",
                                      onset=dfx$rew.ons.ms/1000,
                                      duration=1.5,
                                      run=dfx$Run,
