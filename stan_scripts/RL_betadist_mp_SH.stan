@@ -85,7 +85,7 @@ transformed parameters {
         alpha_normal[s,2] = alpha_m + (alpha_s*alpha_raw[s]) + alpha_sh[s];
         
         beta_1_MF_normal[s,1] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]);
-        beta_1_MF_normal[s,2] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) + b1MF_sh[s];
+        beta_1_MF_normal[s,2] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s,shark]) + b1MF_sh[s];
         
         beta_1_MB_normal[s,1] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]);
         beta_1_MB_normal[s,2] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + b1MB_sh[s];
@@ -99,7 +99,7 @@ transformed parameters {
   
   alpha = inv_logit(alpha_normal);
   beta_1_MF = exp(beta_1_MF_normal);
-  beta_1_MB = exp(beta_1_MF_normal);
+  beta_1_MB = exp(beta_1_MB_normal);
   beta_2 = exp(beta_2_normal);
   
 }
