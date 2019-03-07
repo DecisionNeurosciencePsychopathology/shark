@@ -7,11 +7,7 @@ data {
   int<lower=1,upper=2> state_2[nS,nT]; 
   int missing_choice[nS,nT,2];
   int skip_choice[nS,nT,2];
-  int<lower=0,upper=1> shark [nS,nT];
-  int<lower=0,upper=1> grp_dep[nS];
-  int<lower=0,upper=1> grp_ide[nS];
-  int<lower=0,upper=1> grp_att[nS];
-  int Group[nS];
+  
 }
 
 parameters {
@@ -21,18 +17,10 @@ parameters {
   real<lower=0> beta_1_MF_s;
   real beta_1_MB_m;
   real<lower=0> beta_1_MB_s;
+  real lamda_m;
+  real<lower=0> lamda_s;
   real beta_2_m;
   real<lower=0> beta_2_s;
-  
-  real alpha_sh_m;
-  real b1MF_sh_m;
-  real b1MB_sh_m;
-
-  
-  real<lower=0> alpha_sh_s;
-  real<lower=0> b1MF_sh_s;
-  real<lower=0> b1MB_sh_s;
-
   
   real pers_m;
   real<lower=0> pers_s;
@@ -49,57 +37,49 @@ parameters {
   vector[nS] pers_raw;
   vector[nS] Mo_pers_raw;
   
-  vector[nS] alpha_sh_raw;
-  vector[nS] b1MF_sh_raw;
-  vector[nS] b1MB_sh_raw;
-
+  vector[nS] lamda_raw;
+  
+ 
+  
 }
 
 transformed parameters {
 
   //define transformed parameters
-  vector[2] alpha_normal[nS];
-  vector[2] beta_1_MF_normal[nS];
-  vector[2] beta_1_MB_normal[nS];
-  vector[nS] beta_2_normal;
+  vector<lower=0,upper=1>[nS] alpha;
+  vector[nS] alpha_normal;
   
-  vector<lower=0,upper=1>[2] alpha[nS];
-  vector<lower=0>[2] beta_1_MF[nS];
-  vector<lower=0>[2] beta_1_MB[nS];
+  vector[nS] beta_1_MF_n;
+  vector[nS] beta_1_MB_n;
+  vector[nS] beta_2_n;
+  vector[nS] lamda_n;
+  
+  vector<lower=0>[nS] beta_1_MF;
+  vector<lower=0>[nS] beta_1_MB;
   vector<lower=0>[nS] beta_2;
   
+  vector[nS] lamda;
   vector[nS] pers;
   vector[nS] Mo_pers;
-  vector[nS] alpha_sh;
-  vector[nS] b1MF_sh;
-  vector[nS] b1MB_sh;
 
   
-  alpha_sh = alpha_sh_m + (alpha_sh_s*alpha_sh_raw);
-  b1MF_sh = b1MF_sh_m + (b1MF_sh_s*b1MF_sh_raw);
-  b1MB_sh = b1MB_sh_m + (b1MB_sh_s*b1MB_sh_raw);
+  alpha_normal = alpha_m + (alpha_s*alpha_raw);
+  alpha = inv_logit(alpha_normal);
   
- 
-  for (s in 1:nS){
-        alpha_normal[s,1] = alpha_m + (alpha_s*alpha_raw[s]);
-        alpha_normal[s,2] = alpha_m + (alpha_s*alpha_raw[s]) + alpha_sh[s];
-        
-        beta_1_MF_normal[s,1] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]);
-        beta_1_MF_normal[s,2] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) + b1MF_sh[s];
-        
-        beta_1_MB_normal[s,1] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]);
-        beta_1_MB_normal[s,2] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + b1MB_sh[s];
-  }
-  beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
+  beta_1_MF_n = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw);
+  beta_1_MB_n = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw);
+  beta_2_n = beta_2_m + (beta_2_s*beta_2_raw);
+  
+  beta_1_MF = exp(beta_1_MF_n);
+  beta_1_MB = exp(beta_1_MB_n);
+  beta_2 = exp(beta_2_n);
+  
+  lamda_n = lamda_m + (lamda_s * lamda_raw);
+  lamda = inv_logit(lamda_n);
   
   pers = pers_m + pers_s*pers_raw;
   Mo_pers = Mo_pers_m + Mo_pers_s * Mo_pers_raw;
-  
-  alpha = inv_logit(alpha_normal);
-  beta_1_MF = exp(beta_1_MF_normal);
-  beta_1_MB = exp(beta_1_MB_normal);
-  beta_2 = exp(beta_2_normal);
-  
+
 }
 
 model {
@@ -118,11 +98,12 @@ model {
  
   
   //define priors
-  alpha_m ~ normal(0,2.5);
-  beta_1_MF_m ~ normal(0,2.5);
-  beta_1_MB_m ~ normal(0,2.5);
-  beta_2_m ~ normal(0,2.5);
+  alpha_m ~ normal(0,5);
+  beta_1_MF_m ~ normal(0,5);
+  beta_1_MB_m ~ normal(0,5);
+  beta_2_m ~ normal(0,5);
   
+  lamda_m ~ normal(0,5);
   pers_m ~ normal(0,2.5);
   Mo_pers_m ~ normal(0,2.5);
   
@@ -130,6 +111,7 @@ model {
   beta_1_MF_s ~ cauchy(0,1);
   beta_1_MB_s ~ cauchy(0,1);
   beta_2_s ~ cauchy(0,1);
+  lamda_s ~ cauchy(0,1);
  
   pers_s ~ cauchy(0,1);
   Mo_pers_s ~ cauchy(0,1);
@@ -139,21 +121,9 @@ model {
   beta_1_MB_raw ~ normal(0,1);
   beta_2_raw ~ normal(0,1);
   
+  lamda_raw ~ normal(0,1);
   pers_raw ~ normal(0,1);
   Mo_pers_raw ~ normal(0,1);
-  
-  alpha_sh_m ~ normal(0,4);
-  b1MF_sh_m ~ normal(0,4);
-  b1MB_sh_m ~ normal(0,4);
-  
-  alpha_sh_s ~ cauchy(0,1);
-  b1MF_sh_s ~ cauchy(0,1);
-  b1MB_sh_s ~ cauchy(0,1);
-  
-  alpha_sh_raw ~ normal(0,1);
-  b1MF_sh_raw ~ normal(0,1);
-  b1MB_sh_raw ~ normal(0,1);
-  
   
   for (s in 1:nS) {
   
@@ -185,7 +155,7 @@ model {
         //print(beta_1_MF[s,t]);
          choice[s,t,1] ~ bernoulli_logit( 
           
-          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s,shark[s,t]+1])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s,shark[s,t]+1])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor)
+          ((Q_TD[2]-Q_TD[1])*beta_1_MF[s])+((Q_MB[2]-Q_MB[1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor)
           
           );
          }
@@ -195,35 +165,25 @@ model {
         //use if not missing 2nd stage choice
         if (missing_choice[s,t,2]==0) {
           if(skip_choice[s,t,2]==0) {
-          choice[s,t,2] ~ bernoulli_logit( ((Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1])*beta_2[s]) );
+          choice[s,t,2] ~ bernoulli_logit(  (Q_2[state_2[s,t],2]-Q_2[state_2[s,t],1]) *beta_2[s] );
           }
-          
-          
           //use if not missing 2nd stage reward
           //if (missing_reward[s,t]==0) {
              //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s,shark[s,t]+1]-Q_TD[choice[s,t,1]+1]; 
-             delta_2 = reward[s,t]/alpha[s,shark[s,t]+1] - Q_2[state_2[s,t],choice[s,t,2]+1];
+             //Update the first stage value first 
+             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s]-Q_TD[choice[s,t,1]+1]; 
+             delta_2 = reward[s,t]/alpha[s] - Q_2[state_2[s,t],choice[s,t,2]+1];
              
-             //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
-             // expectation of transition, otherwise update 2nd expectation
-             //tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 1 : 2;
-             //tran_type[tran_count] = tran_type[tran_count] + 1;
-             
-             //update chosen values
-             //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1)+(0.99*delta_2);
-             
-             Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s,shark[s,t]+1]*delta_2;
-            
-             
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s]*delta_1) + (lamda[s]*delta_2);
+             Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2;
+              
              //update unchosen TD & second stage values
-             Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-             Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
+             Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
+             Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[state_2[s,t],(choice[s,t,2] ? 1 : 2)];
              unc_state = (state_2[s,t]-1) ? 1 : 2;
-             Q_2[unc_state,1] = (1-alpha[s,shark[s,t]+1])*Q_2[unc_state,1];
-             Q_2[unc_state,2] = (1-alpha[s,shark[s,t]+1])*Q_2[unc_state,2];
+             Q_2[unc_state,1] = (1-alpha[s])*Q_2[unc_state,1];
+             Q_2[unc_state,2] = (1-alpha[s])*Q_2[unc_state,2];
             
              if (choice[s,t,1]==0 && state_2[s,t]==1) {alpha_b = alpha_b + 1;}   
              if (choice[s,t,1]==1 && state_2[s,t]==2) {alpha_b = alpha_b + 1;}
@@ -234,24 +194,27 @@ model {
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
           delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]-Q_TD[choice[s,t,1]+1]; 
-          Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*delta_1;
-          Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_TD[(choice[s,t,1] ? 1 : 2)];
-          Q_2[1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[1,1];
-          Q_2[1,2] = (1-alpha[s,shark[s,t]+1])*Q_2[1,2];
-          Q_2[2,1] = (1-alpha[s,shark[s,t]+1])*Q_2[2,1];
-          Q_2[2,2] = (1-alpha[s,shark[s,t]+1])*Q_2[2,2];
+          delta_2 = 0;
+          Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s]*delta_1;
+          Q_TD[(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[(choice[s,t,1] ? 1 : 2)];
+          Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+          Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+          Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+          Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
          
           //MB update of first stage values based on second stage values, so don't change //not true...update happened post 
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values & update previous choice
       prev_choice=0;
       prev_motor=0;
-      Q_TD[1] = (1-alpha[s,shark[s,t]+1])*Q_TD[1];
-      Q_TD[2] = (1-alpha[s,shark[s,t]+1])*Q_TD[2];
-      Q_2[1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[1,1];
-      Q_2[1,2] = (1-alpha[s,shark[s,t]+1])*Q_2[1,2];
-      Q_2[2,1] = (1-alpha[s,shark[s,t]+1])*Q_2[2,1];
-      Q_2[2,2] = (1-alpha[s,shark[s,t]+1])*Q_2[2,2];
+      delta_1 = 0;
+      delta_2 = 0;
+      Q_TD[1] = (1-alpha[s])*Q_TD[1];
+      Q_TD[2] = (1-alpha[s])*Q_TD[2];
+      Q_2[1,1] = (1-alpha[s])*Q_2[1,1];
+      Q_2[1,2] = (1-alpha[s])*Q_2[1,2];
+      Q_2[2,1] = (1-alpha[s])*Q_2[2,1];
+      Q_2[2,2] = (1-alpha[s])*Q_2[2,2];
       }
     }
   }
@@ -301,7 +264,7 @@ generated quantities {
       if (missing_choice[s,t,1]==0) {
         //print( ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor) )
         if(skip_choice[s,t,1]==0) {
-        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s,shark[s,t]+1]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s,shark[s,t]+1])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
+        log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
         } else {log_lik[s,t,1] = 0;}
         prev_choice = (2*choice[s,t,1])-1; //1 if choice 2, -1 if choice 1
         prev_motor = motorchoice[s,t,1];
@@ -314,26 +277,20 @@ generated quantities {
           //if (missing_reward[s,t]==0) {
             //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s,shark[s,t]+1] - Q_TD[s,t,choice[s,t,1]+1]; 
-             delta_2[s,t] = reward[s,t]/alpha[s,shark[s,t]+1] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
-             //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
-             // expectation of transition, otherwise update 2nd expectation
-             //tran_count = (state_2[s,t]-choice[s,t,1]-1) ? 1 : 2;
-             //tran_type[tran_count] = tran_type[tran_count] + 1;
+             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s] - Q_TD[s,t,choice[s,t,1]+1]; 
+             delta_2[s,t] = reward[s,t]/alpha[s] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
-             //update chosen values
-             //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*(delta_1+lambda[s]*delta_2);
-             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1[s,t])+(1*delta_2[s,t]);
-             Q_2[s,t+1,state_2[s,t],choice[s,t,2]+1] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] + alpha[s,shark[s,t]+1]*delta_2[s,t];
+             Q_2[s,t+1,state_2[s,t],choice[s,t,2]+1] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] + alpha[s]*delta_2[s,t];
+             //Then update the first stage;
+             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s]*delta_1[s,t])+(lamda[s]*delta_2[s,t]);
             
-             
              //update unchosen TD & second stage values
-             Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
-             Q_2[s,t+1,state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,state_2[s,t],(choice[s,t,2] ? 1 : 2)];
+             Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
+             Q_2[s,t+1,state_2[s,t],(choice[s,t,2] ? 1 : 2)] = (1-alpha[s])*Q_2[s,t,state_2[s,t],(choice[s,t,2] ? 1 : 2)];
              unc_state = (state_2[s,t]-1) ? 1 : 2;
-             Q_2[s,t+1,unc_state,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,unc_state,1];
-             Q_2[s,t+1,unc_state,2] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,unc_state,2];
+             Q_2[s,t+1,unc_state,1] = (1-alpha[s])*Q_2[s,t,unc_state,1];
+             Q_2[s,t+1,unc_state,2] = (1-alpha[s])*Q_2[s,t,unc_state,2];
              
              //Use Beta distribution instead of fix value for trans p;
              //print(choice[s,t,1])
@@ -350,12 +307,12 @@ generated quantities {
           log_lik[s,t,2] = 0;
           delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]-Q_TD[s,t,choice[s,t,1]+1]; 
           delta_2[s,t] = -998;
-          Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*delta_1[s,t];
-          Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
-          Q_2[s,t+1,1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,1];
-          Q_2[s,t+1,1,2] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,2];
-          Q_2[s,t+1,2,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,2,1];
-          Q_2[s,t+1,2,2] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,2,2];
+          Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + alpha[s]*delta_1[s,t];
+          Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
+          Q_2[s,t+1,1,1] = (1-alpha[s])*Q_2[s,t,1,1];
+          Q_2[s,t+1,1,2] = (1-alpha[s])*Q_2[s,t,1,2];
+          Q_2[s,t+1,2,1] = (1-alpha[s])*Q_2[s,t,2,1];
+          Q_2[s,t+1,2,2] = (1-alpha[s])*Q_2[s,t,2,2];
           //MB update of first stage values based on second stage values, so don't change //But that's not true because second stage value decayed ;_;
           alpha_b[s,t+1] = alpha_b[s,t];
           beta_b[s,t+1] = beta_b[s,t];
@@ -364,12 +321,12 @@ generated quantities {
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values
       log_lik[s,t,1] = 0;
       log_lik[s,t,2] = 0;
-      Q_TD[s,t+1,1] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,1];
-      Q_TD[s,t+1,2] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,2];
-      Q_2[s,t+1,1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,1];
-      Q_2[s,t+1,1,2] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,2];
-      Q_2[s,t+1,2,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,2,1];
-      Q_2[s,t+1,2,2] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,2,2];
+      Q_TD[s,t+1,1] = (1-alpha[s])*Q_TD[s,t,1];
+      Q_TD[s,t+1,2] = (1-alpha[s])*Q_TD[s,t,2];
+      Q_2[s,t+1,1,1] = (1-alpha[s])*Q_2[s,t,1,1];
+      Q_2[s,t+1,1,2] = (1-alpha[s])*Q_2[s,t,1,2];
+      Q_2[s,t+1,2,1] = (1-alpha[s])*Q_2[s,t,2,1];
+      Q_2[s,t+1,2,2] = (1-alpha[s])*Q_2[s,t,2,2];
       //Decay Q_MB as well
       alpha_b[s,t+1] = alpha_b[s,t];
       beta_b[s,t+1] = beta_b[s,t];

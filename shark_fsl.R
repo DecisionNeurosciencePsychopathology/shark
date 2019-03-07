@@ -8,7 +8,7 @@ library("fslpipe")
 require("dplyr")
 #Script Wide Arguments:
 reloaddata<-F
-runTheseGroup<-c(2,4)
+
   
 parallenum=parallel::detectCores()/2
 source('shark_utility.R')
@@ -17,7 +17,7 @@ if(reloaddata){
   source('behaviroal/shark_beh_analyses_import_process.R')
 } else {load("shark1.RData")}
 
-if(!is.null(runTheseGroup)){bdf<-bdf[which(bdf$GROUP1245 %in% runTheseGroup),]}
+
 
 
 shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
@@ -25,7 +25,7 @@ shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
 })
 names(shark_fsl_data)<-as.character(unique(bdf$ID))
 
-argu<-as.environment(list(nprocess=4,onlyrun=c(1,2,3,4),forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
+argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
                           proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
                           gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
@@ -45,6 +45,28 @@ argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabl
 argu$model.name<-"BasicModel"
 argu$gridpath<-"./grids/basic.csv"
 #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
+
+runGroupComparison<-T
+
+if(runGroupComparison){
+  allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
+  allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
+  bdf$Group<-as.character(bdf$GROUP1245)
+  #Fix it before going in;
+  refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
+  refdf$grp[refdf$grp!=1]<-"DEP"
+  refdf$grp[refdf$grp==1]<-"HC"
+  #allbpd against controls:
+  
+  argu$supplyidmap<-lapply(split(refdf,refdf$grp),function(rx){
+    list(ID=rx$ID,name=unique(rx$grp))
+  })
+  argu$whichttest<-"unpaired"
+  argu$group_id_sep<-unique(refdf$grp)
+  
+  #We can now call argu to do it again; 
+  argu$onlyrun<-5:6
+}
 
 fsl_pipe(
   argu=argu, #This is the arguments environment, each model should have a different one;
