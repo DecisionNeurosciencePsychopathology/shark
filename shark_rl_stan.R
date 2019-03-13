@@ -289,7 +289,7 @@ run_shark_stan(data_list=shark_stan_prep(vb_sp),stanfile='stan_scripts/shahar_jc
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_SH.stan',add_data = list(factorizedecay=0),
-               modelname="RL_betadist_mp_SH_all",stan_args="default",assignresult=T,iter = 4000,forcererun = T,chains = 4,
+               modelname="RL_betadist_mp_SH_all",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/RL_betadist_mp_SH.stan',add_data = list(factorizedecay=0),
@@ -314,9 +314,20 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_HC),stanfile='stan_scripts/
                modelname="RLdaw_gx_betadist_mp_HC",stan_args="default",assignresult=T,iter = 4000,forcererun = T,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
+####Try the two new models;
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_SH_GRP_lite.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_betadist_mp_SH_GRP_lite",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_betadist_mp_SH_Grp",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
 rxj<-shark_mkinit(1)
 optimizing()
-fitxr <- stan(file="stan_scripts/RL_betadist_mp_SH.stan",data = shark_stan_prep(shark_split_HC),iter=1, chains=1,seed=424546151, algorithm="Fixed_param")
+fitxr <- stan(file="stan_scripts/RL_betadist_mp_SH_GRP_lite.stan",data = shark_stan_prep(shark_split_all),iter=1, chains=1,seed=424546151, algorithm="Fixed_param")
 
 
 system(paste0("rclone sync ",file.path(getwd())," box:skinner/projects_analyses/Shark -L"))

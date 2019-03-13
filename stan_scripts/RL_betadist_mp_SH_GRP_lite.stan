@@ -36,10 +36,6 @@ parameters {
   vector[3] b1MF_sh_grp;
   vector[3] b1MB_sh_grp;
   
-  vector[3] alpha_grp;
-  vector[3] b1MF_grp;
-  vector[3] b1MB_grp;
-  
   real pers_m;
   real<lower=0> pers_s;
   real Mo_pers_m;
@@ -80,10 +76,7 @@ transformed parameters {
   vector[nS] b1MF_sh;
   vector[nS] b1MB_sh;
 
-  
- 
-  
- 
+
   for (s in 1:nS){
     if(Group[s]==0) {
         alpha_sh[s] = alpha_sh_m + (alpha_sh_s*alpha_sh_raw[s]);
@@ -103,14 +96,14 @@ transformed parameters {
         b1MF_sh[s] = b1MF_sh_m + (b1MF_sh_s*b1MF_sh_raw[s]) + b1MF_sh_grp[Group[s]];
         b1MB_sh[s] = b1MB_sh_m + (b1MB_sh_s*b1MB_sh_raw[s]) + b1MB_sh_grp[Group[s]];
       
-        alpha_normal[s,1] = alpha_m + (alpha_s*alpha_raw[s]) + alpha_grp[Group[s]];
-        alpha_normal[s,2] = alpha_m + (alpha_s*alpha_raw[s]) + alpha_sh[s] + alpha_grp[Group[s]];
+        alpha_normal[s,1] = alpha_m + (alpha_s*alpha_raw[s]) ;
+        alpha_normal[s,2] = alpha_m + (alpha_s*alpha_raw[s]) + alpha_sh[s] ;
         
-        beta_1_MF_normal[s,1] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) + b1MF_grp[Group[s]];
-        beta_1_MF_normal[s,2] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) + b1MF_sh[s] + b1MF_grp[Group[s]];
+        beta_1_MF_normal[s,1] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) ;
+        beta_1_MF_normal[s,2] = beta_1_MF_m + (beta_1_MF_s*beta_1_MF_raw[s]) + b1MF_sh[s] ;
         
-        beta_1_MB_normal[s,1] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + b1MB_grp[Group[s]];
-        beta_1_MB_normal[s,2] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + b1MB_sh[s] + b1MB_grp[Group[s]];
+        beta_1_MB_normal[s,1] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) ;
+        beta_1_MB_normal[s,2] = beta_1_MB_m + (beta_1_MB_s*beta_1_MB_raw[s]) + b1MB_sh[s] ;
     }
   }
   beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
@@ -169,6 +162,10 @@ model {
   b1MF_sh_m ~ normal(0,4);
   b1MB_sh_m ~ normal(0,4);
   
+  alpha_sh_grp ~ normal(0,4);
+  b1MF_sh_grp ~ normal(0,4);
+  b1MB_sh_grp ~ normal(0,4);
+  
   alpha_sh_s ~ cauchy(0,1);
   b1MF_sh_s ~ cauchy(0,1);
   b1MB_sh_s ~ cauchy(0,1);
@@ -177,13 +174,6 @@ model {
   b1MF_sh_raw ~ normal(0,1);
   b1MB_sh_raw ~ normal(0,1);
   
-  alpha_sh_grp ~ normal(0,4);
-  b1MF_sh_grp ~ normal(0,4);
-  b1MB_sh_grp ~ normal(0,4);
-  
-  alpha_grp ~ normal(0,4);
-  b1MF_grp ~ normal(0,4);
-  b1MB_grp ~ normal(0,4);
   
   for (s in 1:nS) {
   

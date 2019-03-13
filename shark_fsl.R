@@ -54,6 +54,7 @@ if(runGroupComparison){
   bdf$Group<-as.character(bdf$GROUP1245)
   #Fix it before going in;
   refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
+  
   refdf$grp[refdf$grp!=1]<-"DEP"
   refdf$grp[refdf$grp==1]<-"HC"
   #allbpd against controls:
