@@ -232,9 +232,58 @@ allgrps<-lapply(c("1","2","4","5"), function(grp){
 })
 
 
-
 ggplot(beta_1_MB_df,aes(x=inv_logit(value)))+geom_histogram(bins = 30)+facet_wrap(~grp)
 #+geom_line(aes(Trial,Q_TD_1,color="1"))+geom_line(aes(Trial,Q_TD_2,color="2"))
+
+RLXR<-extract(RL_betadist_mp_SH_Grp$stanfit_RL_betadist_mp_SH_Grp)
+pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
+          "beta_2_m","pers_m","alpha_s","beta_1_MF_s","beta_1_MB_s",
+          "beta_2_s","pers_s")
+pairs(RL_betadist_mp_SH_Grp$stanfit_RL_betadist_mp_SH_Grp,pars=c("beta_1_MB_m","b1MB_sh_grp"))
+
+
+
+xz<-lapply(1:dim(RLXR$beta_1_MB)[2],function(x){
+  xt<-as.data.frame(RLXR$beta_1_MB[,x,])
+  names(xt)<-c("b1MB_1","b1MB_2")
+  do.call(rbind,lapply(names(xt),function(zt){
+    rxt<-data.frame(value=xt[[zt]],type=zt)
+    rxt$ID<-x
+    rxt$grp<-RL_betadist_mp_SH_Grp$data_list$Group[x]
+    return(rxt)
+  })
+  )
+})
+xzd<-do.call(rbind,xz)
+
+xzd$ID<-as.factor(xzd$ID)
+xzd$grp<-as.factor(xzd$grp)
+ggplot(xzd,aes(x=grp, y = log(value),color=type,fill=ID))+geom_boxplot()
+
+xz<-lapply(1:dim(RLXR$beta_1_MF_normal)[2],function(x){
+  xt<-as.data.frame(RLXR$beta_1_MF_normal[,x,])
+  names(xt)<-c("b1MF_1","b1MF_2")
+  do.call(rbind,lapply(names(xt),function(zt){
+    rxt<-data.frame(value=xt[[zt]],type=zt)
+    rxt$ID<-x
+    rxt$grp<-RL_betadist_mp_SH_Grp$data_list$Group[x]
+    return(rxt)
+  })
+  )
+})
+xzd<-do.call(rbind,xz)
+
+xzd$ID<-as.factor(xzd$ID)
+xzd$grp<-as.factor(xzd$grp)
+xzd$type<-as.factor(xzd$type)
+xzd<-xzd[order(xzd$type),]
+ggplot(xzd,aes(x=grp, y = value,color=type))+geom_boxplot()
+
+jrx<-data.frame(sh_value=apply(RLXR$b1MB_sh,2,mean),grp=RL_betadist_mp_SH_Grp$data_list$Group)
+jrx$grp<-as.factor(jrx$grp)
+
+ggplot(data.frame(MF_SH=apply(RLXR$b1MF_sh,2,median),MB_SH=apply(RLXR$b1MB_sh,2,median),grp=as.factor(RL_betadist_mp_SH_Grp$data_list$Group)),
+       aes(x=MF_SH,y=MB_SH,color=grp)) + geom_point()
 
 
 
