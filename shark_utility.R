@@ -181,28 +181,24 @@ shark_proc<-function(dfx) {
 }
 
 shark_exclusion<-function(dfx=NULL, missthres=NA,comreinfstaythres=NA,P_staycomreinfchance=NA,returnstats=F) {
-  if(!is.na(missthres)){
   p_miss<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1))
+  if(!is.na(missthres)){
   p_miss_if<- p_miss < missthres
-  } else {p_miss_if<-TRUE}
+  } else {p_miss_if<-TRUE;}
   
+  z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
+  p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
   if(!is.na(comreinfstaythres)){
-    z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
-    p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
     if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
-  } else {if_com_reinf_stay<-TRUE}
-  
+  } else {if_com_reinf_stay<-TRUE;}
+
+  p_com_reinf_stay_chance<-pbinom(length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf) & as.logical(dfx$Stay1))), 
+                                  length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))), 0.5)
  if(!is.na(P_staycomreinfchance)){
    #Get chance p of stay given common reinf, 
-   p_com_reinf_stay_chance<-pbinom(length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf) & as.logical(dfx$Stay1))), 
-                                   length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))), 0.5)
    if_chance_comreinfstay <- p_com_reinf_stay_chance > P_staycomreinfchance
- }else{if_chance_comreinfstay<-TRUE}
-  
-  
- 
-  
-  
+ }else{if_chance_comreinfstay<-TRUE;}
+
   if(returnstats){data.frame(p_miss=p_miss,p_comreinfstay=p_com_reinf_stay,p_chancecomreinfstay=p_com_reinf_stay_chance)}else{
   if (p_miss_if && if_com_reinf_stay && if_chance_comreinfstay) {return(dfx)} else {return(NULL)}
   }
@@ -390,12 +386,12 @@ shark_stan_prep<-function(shark_split=NULL){
     #message(s)
     dfx<-shark_split[[s]]
     shark_stan$ID[s]<-unique(as.character(dfx$ID))
-    shark_stan$Group[s]<-unique(as.character(dfx$GROUP1245))
-    shark_stan$grp_hc[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="1")
-    shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="2")
-    shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="4")
-    shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$GROUP1245))=="5")
-    shark_stan$grp_clinical[s]=as.numeric(unique(as.character(dfx$GROUP1245))!="1")
+    shark_stan$Group[s]<-unique(as.character(dfx$Group))
+    shark_stan$grp_hc[s]=as.numeric(unique(as.character(dfx$Group))=="1")
+    shark_stan$grp_dep[s]=as.numeric(unique(as.character(dfx$Group))=="2")
+    shark_stan$grp_ide[s]=as.numeric(unique(as.character(dfx$Group))=="4")
+    shark_stan$grp_att[s]=as.numeric(unique(as.character(dfx$Group))=="5")
+    shark_stan$grp_clinical[s]=as.numeric(unique(as.character(dfx$Group))!="1")
     shark_stan$choice[s,1:nrow(dfx),1]<-as.numeric(dfx$choice1)-1 #Choice is 0 or 1
     shark_stan$choice[s,1:nrow(dfx),2]<-as.numeric(dfx$choice2)-1
     shark_stan$rt[s,1:nrow(dfx),1]<-(as.numeric(dfx$rts1)) 
