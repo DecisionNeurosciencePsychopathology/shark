@@ -330,16 +330,6 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts
                modelname="RL_betadist_mp_omega_SH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
-run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_v1_1_betadist_mp_omega_SH_Grp.stan',
-               add_data = list(factorizedecay=0),
-               modelname="RL_v1_1_betadist_mp_omega_SH_Grp_all",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
-               savepath="stan_scripts/stan_output",open_shinystan=F)
-
-
-run_shark_stan(data_list=shark_stan_prep(cleanuplist(shark_split_HC)),stanfile='stan_scripts/RL_v2_1_betadist_mp_SH.stan',
-               add_data = list(factorizedecay=0),
-               modelname="RL_v2_1_betadist_mp_SH_HC",stan_args="default",assignresult=T,iter = 5000,forcererun = T,chains = 4,
-               savepath="stan_scripts/stan_output",open_shinystan=F)
 
 #Try no decay
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_nodecay_omega_SH_Grp.stan',

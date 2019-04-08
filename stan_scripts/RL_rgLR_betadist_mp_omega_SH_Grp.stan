@@ -239,8 +239,9 @@ model {
           //if (missing_reward[s,t]==0) {
              //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1]/alpha[s,shark[s,t]+1]-Q_TD[choice[s,t,1]+1]; 
-             delta_2 = reward[s,t]/alpha[s,shark[s,t]+1] - Q_2[state_2[s,t],choice[s,t,2]+1];
+             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1] - Q_TD[choice[s,t,1]+1]; 
+             delta_2 = reward[s,t] - Q_2[state_2[s,t],choice[s,t,2]+1];
+             
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
              // expectation of transition, otherwise update 2nd expectation
@@ -316,6 +317,7 @@ generated quantities {
   real RPE_MF[nS,nT];
   real RPE_diff[nS,nT];
   
+  
   for (s in 1:nS) {
     for (i in 1:2) {
       Q_TD[s,1,i]=.5;
@@ -341,30 +343,19 @@ generated quantities {
         //print( ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor) )
         if(skip_choice[s,t,1]==0) {
         log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s,shark[s,t]+1]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s,shark[s,t]+1])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
-        
-        
-         if(t > 1){
-          RPE_MB[s,t] = (fmax(Q_2[s,t,state_2[s,t],1],Q_2[s,t,state_2[s,t],2])) - Q_MB[s,t-1,choice[s,t,1]+1];
-          RPE_MF[s,t] = (fmax(Q_2[s,t,state_2[s,t],1],Q_2[s,t,state_2[s,t],2])) - Q_TD[s,t-1,choice[s,t,1]+1];
-          RPE_diff[s,t] = RPE_MB[s,t] - RPE_MF[s,t];
-        } else {
-          RPE_MB[s,1] = (fmax(Q_2[s,t,state_2[s,t],1],Q_2[s,t,state_2[s,t],2]));
-          RPE_MF[s,1] = (fmax(Q_2[s,t,state_2[s,t],1],Q_2[s,t,state_2[s,t],2]));
-          RPE_diff[s,1] = RPE_MB[s,1] - RPE_MF[s,1];
-        }
-        
-        
-        } else {
-          log_lik[s,t,1] = 0;
-          RPE_MB[s,t] = -999;
-          RPE_MF[s,t] = -999;
-          RPE_diff[s,t] = -999; 
-        }
+        } else {log_lik[s,t,1] = 0;}
         prev_choice = (2*choice[s,t,1])-1; //1 if choice 2, -1 if choice 1
         prev_motor = motorchoice[s,t,1];
-        
-       
-        
+        //Calculate RPE 
+        if(t > 1){
+          RPE_MB[s,t] = Q_MB[s,t,choice[s,t,1]+1] - Q_MB[s,t-1,choice[s,t,1]+1];
+          RPE_MF[s,t] = Q_TD[s,t,choice[s,t,1]+1] - Q_TD[s,t-1,choice[s,t,1]+1];
+          RPE_diff[s,t] = RPE_MB[s,t] - RPE_MF[s,t];
+        } else {
+          RPE_MB[s,1] = Q_MB[s,1,choice[s,t,1]+1] - 0.5;
+          RPE_MF[s,1] = Q_TD[s,1,choice[s,t,1]+1] - 0.5;
+          RPE_diff[s,1] = RPE_MB[s,1] - RPE_MF[s,1];
+        }
         if (missing_choice[s,t,2]==0) {
           if(skip_choice[s,t,2]==0) {
           log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])*beta_2[s]));
@@ -373,8 +364,8 @@ generated quantities {
           //if (missing_reward[s,t]==0) {
             //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s,shark[s,t]+1] - Q_TD[s,t,choice[s,t,1]+1]; 
-             delta_2[s,t] = reward[s,t]/alpha[s,shark[s,t]+1] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
+             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] - Q_TD[s,t,choice[s,t,1]+1]; 
+             delta_2[s,t] = reward[s,t] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st
              // expectation of transition, otherwise update 2nd expectation
@@ -406,9 +397,9 @@ generated quantities {
           //} //if missing 2nd stage reward: do nothing
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
-          log_lik[s,t,2] = -999;
+          log_lik[s,t,2] = 0;
           delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1]-Q_TD[s,t,choice[s,t,1]+1]; 
-          delta_2[s,t] = -999;
+          delta_2[s,t] = -998;
           Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*delta_1[s,t];
           Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
           Q_2[s,t+1,1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,1];
@@ -421,8 +412,8 @@ generated quantities {
          
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values
-      log_lik[s,t,1] = -999;
-      log_lik[s,t,2] = -999;
+      log_lik[s,t,1] = 0;
+      log_lik[s,t,2] = 0;
       Q_TD[s,t+1,1] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,1];
       Q_TD[s,t+1,2] = (1-alpha[s,shark[s,t]+1])*Q_TD[s,t,2];
       Q_2[s,t+1,1,1] = (1-alpha[s,shark[s,t]+1])*Q_2[s,t,1,1];
@@ -437,10 +428,6 @@ generated quantities {
       delta_2[s,t] = -999;
       prev_choice=0;
       prev_motor=0;
-      
-      RPE_MB[s,t] = -999;
-      RPE_MF[s,t] = -999;
-      RPE_diff[s,t] = -999; 
       }
    } 
   }

@@ -8,7 +8,8 @@ library("fslpipe")
 require("dplyr")
 #Script Wide Arguments:
 reloaddata<-F
-
+runGroupComparison<-F
+runHConly<-T
   
 parallenum=parallel::detectCores()/2
 source('shark_utility.R')
@@ -17,10 +18,7 @@ if(reloaddata){
   source('behaviroal/shark_beh_analyses_import_process.R')
 } else {load("shark1.RData")}
 
-shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
- return(list(dfx=bdf[which(bdf$ID==ID),]))
-})
-names(shark_fsl_data)<-as.character(unique(bdf$ID))
+
 
 argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
@@ -37,7 +35,7 @@ argu$randomize_p_threshold<-0.001
 argu$randomize_thresholdingways<-c("tfce","voxel-based","cluster-based-extent","cluster-based-mass")
 argu$ss_zthreshold<-3.2  #This controls the single subject z threshold (if enabled in template)
 argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabled in template)
-
+getRLpara=F
 #Model Basic Event Mapping;
 if(base_model){
   argu$model.name<-"BasicModel"
@@ -47,8 +45,31 @@ if(base_model){
 if(pe_model){
   argu$model.name<-"PE_basic"
   argu$gridpath<-"./grids/PE_basic.csv"
+  getRLpara<-T
 }
-runGroupComparison<-T
+
+if(getRLpara){
+  if(file.exists("shark_rl_df.rdata")){
+  load("shark_rl_df.rdata")
+  }else {
+    stop("Please make sure RL output df is saved in the directory.")
+  }
+}
+
+shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
+  if(getRLpara) {
+    if(!is.null(shark_rl_df[[ID]])){
+      return(list(dfx=bdf[which(bdf$ID==ID),],comboRLpara=getRLpara,RLparadf=shark_rl_df[[ID]]))
+    } else {return(NULL)}
+  } else {
+    return(list(dfx=bdf[which(bdf$ID==ID),],comboRLpara=getRLpara,RLparadf=NULL))
+  }
+})
+names(shark_fsl_data)<-as.character(unique(bdf$ID))
+shark_fsl_data<-cleanuplist(shark_fsl_data)
+if(runHConly) {
+shark_fsl_data<-shark_fsl_data[sapply(shark_fsl_data,function(kr){unique(kr$dfx$Group)==1})]
+}
 
 if(runGroupComparison){
   allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
@@ -70,6 +91,8 @@ if(runGroupComparison){
   #We can now call argu to do it again; 
   argu$onlyrun<-5:6
 }
+
+
 
 fsl_pipe(
   argu=argu, #This is the arguments environment, each model should have a different one;

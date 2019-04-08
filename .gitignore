@@ -4,9 +4,12 @@
 .Ruserdata
 .tmp
 .DS_Store
-behaviroal/ALL_SUBJECTS_DEMO.xlsx
-behaviroal/demo_explore.csv
-behaviroal/DRS.xlsx
-behaviroal/EXIT.xlsx
-behaviroal/WTAR.xlsx
+shark1.RData
+behavioral/ALL_SUBJECTS_DEMO.xlsx
+behavioral/demo_explore.csv
+behavioral/DRS.xlsx
+behavioral/EXIT.xlsx
+behavioral/WTAR.xlsx
+scheck/*
+stan_scripts/stan_output/*
 *.rds

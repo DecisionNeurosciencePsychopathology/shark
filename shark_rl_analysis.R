@@ -298,25 +298,33 @@ jrx$grp<-as.factor(jrx$grp)
 ggplot(data.frame(MF_SH=apply(RLXR$b1MF_sh,2,median),MB_SH=apply(RLXR$b1MB_sh,2,median),grp=as.factor(RL_betadist_mp_SH_Grp$data_list$Group)),
        aes(x=MF_SH,y=MB_SH,color=grp)) + geom_point()
 ########################################Do extract 
-FUNCX= median
 dout<-extract(RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex)
 #Get the values 
-lout<-lapply(dout,function(lsx){
-  if(length(dim(lsx))>1){
-    apply(lsx,2:length(dim(lsx)),FUNCX)
-  } else {
-    FUNCX(lsx)
-  }
+
+lout$delta_2[lout$delta_2 < (-990)]<-NA
+lout$delta_1[lout$delta_1 < (-990)]<-NA
+
+lout$Q_TD[lout$Q_TD < (-990)]<-NA
+lout$Q_TD[lout$Q_TD < (-990)]<-NA
+
+fitxr <- stan(file="stan_scripts/RL_betadist_mp_omega_SH_Grp.stan",data = RL_betadist_mp_omega_SH_Grp_allex$data_list,iter=1, chains=1,seed=424546151,init = list(chain1=lout), algorithm="Fixed_param")
+data_list<-RL_betadist_mp_omega_SH_Grp_allex$data_list
+xr<-stan_ex_clean(extract(fitxr),FUNCX = median)
+
+
+parstoget<-c("RPE_MB","RPE_MF","RPE_diff")
+shark_rl_df<-lapply(1:data_list$nS,function(sx){
+  rox<-lapply(parstoget,function(parx){
+      xr[[parx]][sx,]
+  })
+  names(rox)<-parstoget
+  roxj<-data.frame(rox)
+  roxj$ID<-data_list$ID[sx]
+  roxj$Trial<-1:data_list$nT
+  return(roxj)
 })
-lout$delta_2[lout$delta_2< (-990)]<-NA
-lout$delta_1[lout$delta_1< (-990)]<-NA
-
-lout$Q_TD
-
-
-
-
-
+names(shark_rl_df)<-sapply(shark_rl_df,function(kr){unique(kr$ID)})
+save(shark_rl_df,file = "shark_rl_df.rdata")
 
 
 
