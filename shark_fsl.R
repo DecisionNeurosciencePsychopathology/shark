@@ -2,8 +2,8 @@
 rootdir = '~/Box/skinner/data/eprime/shark' 
 
 require("devtools")
-devtools::install_github("PennStateDEPENdLab/dependlab")
-devtools::install_github("DecisionNeurosciencePsychopathology/fMRI_R")
+devtools::install_github("PennStateDEPENdLab/dependlab",force=F)
+devtools::install_github("DecisionNeurosciencePsychopathology/fMRI_R",force = F)
 library("fslpipe")
 require("dplyr")
 #Script Wide Arguments:
@@ -17,9 +17,6 @@ if(reloaddata){
   source('behaviroal/shark_beh_analyses_import_process.R')
 } else {load("shark1.RData")}
 
-
-
-
 shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
  return(list(dfx=bdf[which(bdf$ID==ID),]))
 })
@@ -29,7 +26,7 @@ argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/b
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
                           proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
                           gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
-                          ssub_outputroot="/Volumes/bek/explore/shark/ssanalysis",
+                          ssub_outputroot="/Volumes/bek/explore/shark/ssanalysis",whichttest=c("onesample"),
                           glvl_outputroot="/Volumes/bek/explore/shark/grpanal",centerscaleall=F,
                           templatedir="/Volumes/bek/Newtemplate_may18/fsl_mni152/MNI152_T1_2mm_brain.nii",
                           ssub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_ssfeat_general_adaptive_template_R.fsf",
@@ -42,27 +39,32 @@ argu$ss_zthreshold<-3.2  #This controls the single subject z threshold (if enabl
 argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabled in template)
 
 #Model Basic Event Mapping;
-argu$model.name<-"BasicModel"
-argu$gridpath<-"./grids/basic.csv"
-#argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
-
+if(base_model){
+  argu$model.name<-"BasicModel"
+  argu$gridpath<-"./grids/basic.csv"
+  #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
+} 
+if(pe_model){
+  argu$model.name<-"PE_basic"
+  argu$gridpath<-"./grids/PE_basic.csv"
+}
 runGroupComparison<-T
 
 if(runGroupComparison){
   allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
   allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
-  bdf$Group<-as.character(bdf$GROUP1245)
+  bdf$Group<-as.character(bdf$Group)
   #Fix it before going in;
   refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
-  
-  refdf$grp[refdf$grp!=1]<-"DEP"
-  refdf$grp[refdf$grp==1]<-"HC"
+  # 
+  # refdf$grp[refdf$grp!=1]<-"DEP"
+  # refdf$grp[refdf$grp==1]<-"HC"
   #allbpd against controls:
   
   argu$supplyidmap<-lapply(split(refdf,refdf$grp),function(rx){
     list(ID=rx$ID,name=unique(rx$grp))
   })
-  argu$whichttest<-"unpaired"
+  argu$whichttest<-c("onesample")
   argu$group_id_sep<-unique(refdf$grp)
   
   #We can now call argu to do it again; 

@@ -235,38 +235,51 @@ allgrps<-lapply(c("1","2","4","5"), function(grp){
 ggplot(beta_1_MB_df,aes(x=inv_logit(value)))+geom_histogram(bins = 30)+facet_wrap(~grp)
 #+geom_line(aes(Trial,Q_TD_1,color="1"))+geom_line(aes(Trial,Q_TD_2,color="2"))
 
-RLXR<-extract(RL_betadist_mp_SH_Grp$stanfit_RL_betadist_mp_SH_Grp)
+STANFITOUT<-RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15$stanfit_RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15
+STANFITOUT<-RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex
+DATALIST<-RL_betadist_mp_omega_SH_Grp_allex$data_list
+RLXR<-extract(STANFITOUT)
 pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
           "beta_2_m","pers_m","alpha_s","beta_1_MF_s","beta_1_MB_s",
           "beta_2_s","pers_s")
-pairs(RL_betadist_mp_SH_Grp$stanfit_RL_betadist_mp_SH_Grp,pars=c("beta_1_MB_m","b1MB_sh_grp"))
+pairs(STANFITOUT,pars=c("alpha_m","alpha_grp","beta_1_m","omega_m","beta_1_s","omega_s","omega_grp","beta1_grp"))
 
-
-
-xz<-lapply(1:dim(RLXR$beta_1_MB)[2],function(x){
-  xt<-as.data.frame(RLXR$beta_1_MB[,x,])
-  names(xt)<-c("b1MB_1","b1MB_2")
+xz<-lapply(1:dim(RLXR$omega)[2],function(x){
+  xt<-as.data.frame(RLXR$omega[,x,])
+  names(xt)<-c("omega","omega_SH")
   do.call(rbind,lapply(names(xt),function(zt){
     rxt<-data.frame(value=xt[[zt]],type=zt)
     rxt$ID<-x
-    rxt$grp<-RL_betadist_mp_SH_Grp$data_list$Group[x]
+    rxt$grp<-RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15$data_list$Group[x]
     return(rxt)
   })
   )
 })
 xzd<-do.call(rbind,xz)
-
 xzd$ID<-as.factor(xzd$ID)
 xzd$grp<-as.factor(xzd$grp)
-ggplot(xzd,aes(x=grp, y = log(value),color=type,fill=ID))+geom_boxplot()
+ggplot(xzd,aes(x=grp, y = value,color=type))+geom_boxplot()
 
-xz<-lapply(1:dim(RLXR$beta_1_MF_normal)[2],function(x){
-  xt<-as.data.frame(RLXR$beta_1_MF_normal[,x,])
-  names(xt)<-c("b1MF_1","b1MF_2")
+
+
+get_p_sample<-function(x=NULL,sample_l=NULL,pop_mean=NULL,pop_sd=NULL){
+  if(is.null(pop_mean) | is.null(pop_sd)){
+    if(is.null(sample_l)){stop("No informaiton about distribution")}
+    pop_sd <- sd(sample_l)*sqrt((length(sample_l)-1)/(length(sample_l)))
+    pop_mean <- mean(sample_l) 
+  }
+  return(pnorm(x, pop_mean, pop_sd))
+}
+
+
+
+xz<-lapply(1:dim(RLXR$omega_normal)[2],function(x){
+  xt<-as.data.frame(RLXR$omega_normal[,x,])
+  names(xt)<-c("omega_normal","omega_normal_SH")
   do.call(rbind,lapply(names(xt),function(zt){
     rxt<-data.frame(value=xt[[zt]],type=zt)
     rxt$ID<-x
-    rxt$grp<-RL_betadist_mp_SH_Grp$data_list$Group[x]
+    rxt$grp<-RL_betadist_mp_omega_SH_Grp_ninezero$data_list$Group[x]
     return(rxt)
   })
   )
@@ -277,13 +290,36 @@ xzd$ID<-as.factor(xzd$ID)
 xzd$grp<-as.factor(xzd$grp)
 xzd$type<-as.factor(xzd$type)
 xzd<-xzd[order(xzd$type),]
-ggplot(xzd,aes(x=grp, y = value,color=type))+geom_boxplot()
+ggplot(xzd[xzd$value<10 & xzd$value> -10,] ,aes(x=grp, y = value,color=type))+geom_boxplot()
 
 jrx<-data.frame(sh_value=apply(RLXR$b1MB_sh,2,mean),grp=RL_betadist_mp_SH_Grp$data_list$Group)
 jrx$grp<-as.factor(jrx$grp)
 
 ggplot(data.frame(MF_SH=apply(RLXR$b1MF_sh,2,median),MB_SH=apply(RLXR$b1MB_sh,2,median),grp=as.factor(RL_betadist_mp_SH_Grp$data_list$Group)),
        aes(x=MF_SH,y=MB_SH,color=grp)) + geom_point()
+########################################Do extract 
+FUNCX= median
+dout<-extract(RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex)
+#Get the values 
+lout<-lapply(dout,function(lsx){
+  if(length(dim(lsx))>1){
+    apply(lsx,2:length(dim(lsx)),FUNCX)
+  } else {
+    FUNCX(lsx)
+  }
+})
+lout$delta_2[lout$delta_2< (-990)]<-NA
+lout$delta_1[lout$delta_1< (-990)]<-NA
+
+lout$Q_TD
+
+
+
+
+
+
+
+
 
 
 

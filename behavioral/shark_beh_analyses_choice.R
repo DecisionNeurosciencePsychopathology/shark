@@ -37,108 +37,6 @@ summary(m0null)
 
 
 
-# model-baseness as a function of shark (threat)
-# whether they are going to repeat the stage 1 choice
-m1 <- glmer(Stay1_lead ~ 
-             Stay1  + SameKey1_lead +  ifRare * ifReinf * GROUP1245 + (ifReinf * ifRare | ID:Run),
-            family = binomial(),
-            data = bdf[!bdf$Outlier & !bdf$Missed & !as.logical(bdf$ifSharkBlock),],
-            glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1)
-car::Anova(m1, type = 'III')
-
-
-m1shark_nf <- glmer(Stay1_lead ~ 
-                      Stay1  + SameKey1_lead +  
-                      Transition * ifReinf * GROUP1245 + 
-                      Transition * ifReinf * BlockType + 
-                      Transition * GROUP1245 * BlockType + 
-                      ifReinf * GROUP1245 * BlockType + 
-                      (ifReinf * ifRare | ID:Run),
-                    #(1| ID:Run),
-                    family = binomial(),
-                    data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
-                    glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark_nf)
-car::Anova(m1shark_nf, type = 'III')
-
-m1shark <- glmer(Stay1_lead ~ 
-                   Stay1  + SameKey1_lead +  Transition * ifReinf *BlockType* GROUP1245 + (ifReinf * ifRare | ID:Run),
-                 family = binomial(),
-                 data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
-                 glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark)
-car::Anova(m1shark, type = 'III')
-
-
-
-m1shark_hc <- glmer(Stay1_lead ~ 
-                      Stay1  + SameKey1_lead +  Transition * ifReinf * BlockType + (ifReinf * ifRare | ID:Run),
-                    family = binomial(),
-                    data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
-                    glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark_hc)
-car::Anova(m1shark_hc, type = 'III')
-
-
-m1shark_dg <- glmer(Stay1_lead ~ 
-                      Stay1  + SameKey1_lead +  ifRare * ifReinf * depress *ifSharkBlock + (ifReinf * ifRare | ID:Run),
-                    family = binomial(),
-                    data = bdf[(!bdf$Outlier & !bdf$Missed),],
-                    glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark_dg)
-car::Anova(m1shark_dg, type = 'III')
-
-m1edu <- glmer(Stay1_lead ~ 
-                 Stay1  + SameKey1_lead +  ifRare * ifReinf * GROUP1245 + ifRare*ifReinf*GROUP1245*ifSharkBlock* scale(EDUCATION,center = T) + (ifReinf * ifRare | ID:Run),
-               family = binomial(),
-               data = bdf[!bdf$Outlier & !bdf$Missed & bdf$GROUP1245 %in% c("1","5"),],
-               glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1edu)
-car::Anova(m1edu, type = 'III')
-
-m1exit <- glmer(Stay1_lead ~ 
-                  Stay1  + SameKey1_lead +  ifRare * ifReinf * GROUP1245 + ifRare*ifReinf*GROUP1245*ifSharkBlock* scale(EXIT.EXITtot,center = T) + (ifReinf * ifRare | ID:Run),
-                family = binomial(),
-                data = bdf[!bdf$Outlier & !bdf$Missed & bdf$GROUP1245 %in% c("1","5"),],
-                glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1exit)
-car::Anova(m1exit, type = 'III')
-
-m1edu_gp <- glmer(Stay1_lead ~ 
-                    Stay1  + SameKey1_lead +  ifRare * ifReinf * GROUP1245 + ifRare*ifReinf*GROUP1245*ifSharkBlock* edu_group  + (ifReinf * ifRare | ID:Run),
-                  family = binomial(),
-                  data = bdf[!bdf$Outlier & !bdf$Missed & bdf$GROUP1245 %in% c("1","5"),],
-                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1edu_gp)
-car::Anova(m1edu_gp, type = 'III')
-
-ggplot(bdf[!bdf$Outlier & !bdf$Missed,],mapping = aes(x=ifRare,y=as.numeric(Stay1_lead)-1,color=ifReinf))  + facet_wrap( ~ ifSharkBlock+GROUP1245, ncol=2) +
-  stat_summary(fun.y=mean, geom="bar",alpha=0.2) +
-  stat_summary(fun.data = mean_cl_boot,geom="errorbar", width=0.1) 
-
-
-
-m1_S <- glmer(Stay1_lead ~ 
-                SameKey1_lead +  ifRare * ifReinf * ifSharkBlock+
-                (ifReinf * ifRare | ID) + (1 | ID:Run),
-              family = binomial(),
-              data = bdf[!bdf$Outlier,],
-              glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1_S)
-car::Anova(m1_S, type = 'III')
-
-m1_S_1 <- glmer(Stay1_lead ~ 
-                  SameKey1_lead +  ifRare * ifReinf +
-                  (1 | ID/Run),
-                family = binomial(),
-                data = bdf[!bdf$Outlier,],
-                glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1_S_1)
-car::Anova(m1_S_1, type = 'III')
-
-###MORE BASIC MODEL;
-
 # #Let's try total model free, 4 arm bandit;
 # m1_free <- glmer(choice1_lead  ~ 
 #                      SameKey1_lead +  DecRecode*ifRare * ifReinf * ifSharkBlock  +  
@@ -151,19 +49,12 @@ car::Anova(m1_S_1, type = 'III')
 
 #Star Model Currently:
 
-m1shark <- glmer(Stay1_lead ~ 
-                   Stay1  + SameKey1_lead + 
-                   # Transition * RewardType * GROUP1245 +
-                   # Transition * RewardType * BlockType +
-                   # Transition * GROUP1245 * BlockType +
-                   # RewardType * GROUP1245 * BlockType +
-                   Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
-                   + (RewardType * Transition | ID),
+shark_gm <- glmer(Stay1_lead ~ Stay1  + SameKey1_lead + Transition * RewardType * Group * BlockType + (RewardType * Transition | ID),
                  family = binomial(),
                  data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                  glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m1shark)
-car::Anova(m1shark, type = 'III')
+summary(shark_gm)
+car::Anova(shark_gm, type = 'III')
 
 m1shark_hc <- glmer(Stay1_lead ~  Stay1  + SameKey1_lead +
                    #Transition * ifReinf * GROUP1245 *BlockType +   #Use for 4 ways
@@ -181,19 +72,35 @@ high_mb_hc<-rownames(shark_coef_hc)[which(shark_coef_hc$`RewardTypeNo Reward:Tra
 ###################
 
 #RT Models:
-rtshark1<-lme4::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
+rtshark1<-lmerTest::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
                        # Transition * RewardType * GROUP1245 +
                        # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
                        # RewardType * GROUP1245 * BlockType +
-                       (Transition + RewardType + BlockType + GROUP1245)^2 +   #Use for 4 ways
-                       (Transition | ID/Run),REML = F,
+                       (Transition + RewardType + BlockType + Group)^4 +   #Use for 4 ways
+                       (1 | ID/Run),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
                      control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
                      )
 
 
 summary(rtshark1)                      
+
+rtshark2<-lme4::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
+                       # Transition * RewardType * GROUP1245 +
+                       # Transition * RewardType * BlockType +
+                       # Transition * GROUP1245 * BlockType +
+                       # RewardType * GROUP1245 * BlockType +
+                       (Transition + RewardType + BlockType + GROUP1245)^3 +   #Use for 4 ways
+                       (1 | ID/Run),REML = F,
+                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
+                     control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
+)
+
+anova(rtshark1,rtshark2, type = 'III')
+
+summary(rtshark1)     
+
 car::Anova(rtshark1, type = 'III')
 coefs <- data.frame(coef(summary(rtshark1)))
 # use normal distribution to approximate p-value
@@ -276,7 +183,58 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_box
   ymax = emmean + 3*SE),
   stat = "identity") + facet_wrap(~BlockType,ncol = 2)
 
+####multi-trials analysis;
+tlag=3
+shark_mulT<-lapply(shark_sp,shark_prep_mulT,tlag=tlag)
+shark_mulT_df<-do.call(rbind,shark_mulT)
+addonto<-unlist(lapply(1:tlag-1,function(x){paste(levels(shark_mulT_df$uCond),x,sep="_")}))
 
+model_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),"+ (",1," | ID)",sep = "") )
+model_sub_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),"+ (",paste(addonto,collapse = " + ")," | ID)",sep = "") )
+
+# 
+# shark_gm_mulT<-lmer(model_formula,REML=T,
+#                      data = shark_mulT_df[(!shark_mulT_df$Outlier & !shark_mulT_df$Missed & !as.logical(shark_mulT_df$sharkattack)),],
+#                      lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+shark_gm_mulT<-glmer(model_formula,family = binomial(),
+                     data = shark_mulT_df[(!shark_mulT_df$Outlier & !shark_mulT_df$Missed & !as.logical(shark_mulT_df$sharkattack)),],
+                     glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+
+# shark_sub__gm_mulT<-glmer(model_sub_formula,family = binomial(),
+#                      data = shark_mulT_df[(!shark_mulT_df$Outlier & !shark_mulT_df$Missed & !as.logical(shark_mulT_df$sharkattack)),],
+#                      glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+# save(shark_sub__gm_mulT,file = "timelag_sub_shark.rdata")
+
+summary(shark_gm_mulT)
+car::Anova(shark_gm_mulT)
+vif.lme(shark_gm_mulT)
+shark_gm_mulT_coef<-as.data.frame(summary(shark_gm_mulT)$coefficients,stringsAsFactors = F)
+shark_gm_mulT_coef$L1<-rownames(shark_gm_mulT_coef)
+shark_gm_mulT_coef<-shark_gm_mulT_coef[shark_gm_mulT_coef$L1!="(Intercept)",]
+
+# frx<-do.call(rbind,lapply(0:(tlag-1),function(zk){
+#   UR=shark_gm_mulT_coef[[paste("Rare_Reward",zk,sep="_")]]
+#   CR=shark_gm_mulT_coef[[paste("Common_Reward",zk,sep="_")]]
+#   UO=shark_gm_mulT_coef[[paste("Rare_NoReward",zk,sep="_")]]
+#   CO=shark_gm_mulT_coef[[paste("Common_NoReward",zk,sep="_")]]
+#   data.frame(
+#   mf_index=(UR+CR) - (UO+CO),
+#   mb_index=(UR-CR) + (UO-CO),
+#   timepoint=(zk+1)
+#   )
+# }))
+
+#m_codf<-melt(shark_gm_mulT_coef)
+shark_gm_mulT_coef$RewardType<-sapply(strsplit(shark_gm_mulT_coef$L1,"_"),`[`,2)
+shark_gm_mulT_coef$TransType<-sapply(strsplit(shark_gm_mulT_coef$L1,"_"),`[`,1)
+shark_gm_mulT_coef$Timepoint<-as.numeric(sapply(strsplit(shark_gm_mulT_coef$L1,"_"),`[`,3))
+shark_gm_mulT_coef$SE<-shark_gm_mulT_coef$`Std. Error`
+
+pd <- position_dodge(0.1)
+ggplot(shark_gm_mulT_coef[!is.na(shark_gm_mulT_coef$Timepoint),], aes(x=Timepoint, y=Estimate, colour=RewardType,lty=TransType)) + 
+  geom_errorbar(aes(ymin=Estimate-SE, ymax=Estimate+SE), width=.1, position=pd) +
+  geom_line(position=pd) +
+  geom_point(position=pd)
 
 save(list = ls(all.names = TRUE), file = "shark2.RData") 
 

@@ -36,7 +36,7 @@ source("shark_utility.R")
 
 
 #########################################
-#########ACTUAL RUN $####################
+#########ACTUAL RUN #####################
 #########################################
 
 shark_ID<-list.dirs(rootdir,full.names = F,recursive = F)
@@ -74,7 +74,7 @@ shark_data_proc <- lapply(shark_data,shark_proc)
 #   dev.off()
 # })
 message("Number of subject before clean up: ",length(shark_data_proc))
-shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.5,P_staycomreinfchance=0.00,comreinfstaythres=0.0,returnstats=F))
+shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.15,P_staycomreinfchance=0.05,comreinfstaythres=0.0,returnstats=F))
 message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
 
 
@@ -133,6 +133,7 @@ bdf$Group<-as.factor(bdf$Group)
 bdf$ID <- as.factor(bdf$ID)
 bdf$`GENDER TEXT`<-as.factor(bdf$`GENDER TEXT`)
 
+bdf$edu_group<-NA
 bdf$edu_group[which(bdf$EDUCATION>=16)]<-'HIGH'
 bdf$edu_group[which(bdf$EDUCATION<16)]<-'LOW'
 bdf$edu_group<-as.factor(bdf$edu_group)
@@ -197,7 +198,7 @@ neruopsyvars<-names(allsub_neuropsy)
 bdf<-merge(bdf,allsub_neuropsy,all.x = T)
 
 
-
+shark_sp<-split(bdf,bdf$ID)
 # check for stereotypical responding
 
 # ggplot(bdf,aes(x = trial, y = keycode1)) + geom_line() + facet_wrap(~id)
@@ -205,5 +206,5 @@ bdf<-merge(bdf,allsub_neuropsy,all.x = T)
 # ggplot(bdf,aes(x = trial, y = keycode2)) + geom_line() + facet_wrap(~id)
 
 
-save(list = "bdf", file = "shark1.RData") 
+save(list = c("bdf","shark_sp"), file = "shark1.RData") 
 

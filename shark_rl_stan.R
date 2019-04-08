@@ -15,7 +15,7 @@ bdfx<-bdf[order(bdf$ID),]
 #bdfx<-bdfx[which(bdfx$GROUP1245=="1"),]
 shark_split_all<-split(bdfx,bdfx$ID)
 
-shark_split_HC<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$GROUP1245)=="1"})]
+shark_split_HC<-shark_split_all[sapply(shark_split_all, function(dfx){unique(dfx$Group)=="1"})]
 shark_stan<-shark_stan_prep(shark_split_all)
 #Models
 # if(file.exists("stanmodeloutput.rdata")){
@@ -325,13 +325,55 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts
                modelname="RL_betadist_mp_SH_Grp",stan_args="default",assignresult=T,iter = 4000,forcererun = F,chains = 4,
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
-rxj<-shark_mkinit(1)
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_omega_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_betadist_mp_omega_SH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_v1_1_betadist_mp_omega_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_v1_1_betadist_mp_omega_SH_Grp_all",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+
+run_shark_stan(data_list=shark_stan_prep(cleanuplist(shark_split_HC)),stanfile='stan_scripts/RL_v2_1_betadist_mp_SH.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_v2_1_betadist_mp_SH_HC",stan_args="default",assignresult=T,iter = 5000,forcererun = T,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+#Try no decay
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_betadist_mp_nodecay_omega_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_betadist_mp_nodecay_omega_SH_Grp_allex15",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_rgLR_betadist_mp_nodecay_omega_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_rgLR_betadist_mp_nodecay_SH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_rgLR_betadist_mp_nodecay_SH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+run_shark_stan(data_list=shark_stan_prep(shark_split_all,grpchoice = "hc_dep"),stanfile='stan_scripts/RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp.stan',
+               add_data = list(factorizedecay=0),
+               modelname="RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
+               savepath="stan_scripts/stan_output",open_shinystan=F)
+
+ddddrxj<-shark_mkinit(1)
 optimizing()
-fitxr <- stan(file="stan_scripts/RL_betadist_mp_SH_GRP_lite.stan",data = shark_stan_prep(shark_split_all),iter=1, chains=1,seed=424546151, algorithm="Fixed_param")
+fitxr <- stan(file="stan_scripts/RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp.stan",data = shark_stan_prep(shark_split_all),iter=1, chains=1,seed=424546151, algorithm="Fixed_param")
 
 
 system(paste0("rclone sync ",file.path(getwd())," box:skinner/projects_analyses/Shark -L"))
 rstan::expose_stan_functions(fitxr)
 
-
+xj<-shark_stan_prep(shark_split_all)
 

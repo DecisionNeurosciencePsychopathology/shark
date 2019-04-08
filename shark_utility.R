@@ -157,6 +157,7 @@ shark_proc<-function(dfx) {
   dfx$Stay2 <- as.factor(dfx$choice2 == dfx$choice2_lag)
   dfx$Stay1_lead <- as.factor(dfx$choice1 == dfx$choice1_lead)
   dfx$Stay2_lead <- as.factor(dfx$choice2 == dfx$choice2_lead)
+  
   dfx$SameKey1 <- as.factor(dfx$keycode1 == dfx$keycode1_lag)
   dfx$SameKey2 <- as.factor(dfx$keycode2 == dfx$keycode2_lag)
   dfx$SameKey1_lead <- as.factor(dfx$keycode1 == dfx$keycode1_lead)
@@ -365,7 +366,7 @@ shark_fsl<-function(dfx=NULL) {
   return(output)
 }
 
-shark_stan_prep<-function(shark_split=NULL){
+shark_stan_prep<-function(shark_split=NULL,grpchoice="all"){
   nS=length(shark_split)
   nT=max(sapply(shark_split,nrow))
   shark_stan<-list(
@@ -405,8 +406,8 @@ shark_stan_prep<-function(shark_split=NULL){
     miss_c1<-c(which(is.na(dfx$choice1) ),which(!1:nT %in% 1:nrow(dfx)) )
     miss_c2<-c(which(is.na(dfx$choice2) ),which(!1:nT %in% 1:nrow(dfx)) )
     
-    skip_c1<-c(which(dfx$rts1 > 4 | dfx$rts1 < 0.2 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
-    skip_c2<-c(which(dfx$rts2 > 4 | dfx$rts2 < 0.2 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
+    skip_c1<-c(which(dfx$rts1 > 5 | dfx$rts1 < 0.15 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
+    skip_c2<-c(which(dfx$rts2 > 5 | dfx$rts2 < 0.15 | as.logical(dfx$sharkattack)),which(!1:nT %in% 1:nrow(dfx)))
     #miss_any<-which(dfx$Missed)
     shark_stan$choice[s,miss_c1,1]=0
     shark_stan$choice[s,miss_c2,2]=0
@@ -426,7 +427,24 @@ shark_stan_prep<-function(shark_split=NULL){
     #shark_stan$missing_reward[s,miss_any]=1
     dfx<-NULL
   }
-  shark_stan$Group<-as.numeric(as.factor(shark_stan$Group))-1
+  
+  switch (grpchoice,
+    "all" = {
+      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+      shark_stan$GroupNum<-3
+      },
+    "hc_dep" = {
+      shark_stan$Group[as.numeric(shark_stan$Group) > 1]<-2
+      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+      shark_stan$GroupNum<-2
+    },
+    "hc_dep_sui" = {
+      shark_stan$Group[as.numeric(shark_stan$Group) > 2]<-3
+      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+      shark_stan$GroupNum<-3
+    }
+  )
+
   return(shark_stan)
 }
 
@@ -446,10 +464,11 @@ run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="
   if(forcererun | !file.exists(file.path(savepath,paste0(modelname,".rdata")))){
   templs<-list()
   message("Start Running Stan Model...")
-  templs[[paste0("stanfit_",modelname)]]<-do.call(stan,stan_arg)
+  templs[["stanfit"]]<-do.call(stan,stan_arg)
   message("Completed!")
   templs[["data_list"]]<-data_list
-  save(list = c(paste0("stanfit_",modelname),"data_list"),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
+  templs[["extracted_fit"]]<-rstan::extract(object = templs[["stanfit"]])
+  save(list = c("stanfit","data_list","extracted_fit"),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
   } else if (!forcererun & !skipthis) {
     message("This model has been previously ran, and now will load it"); 
     tempenvir<-new.env(); load(file.path(savepath,paste0(modelname,".rdata")),envir = tempenvir)
@@ -579,3 +598,25 @@ shark_getpar<-function(dx){
 
 inv_logit<-function(x){( exp(x)/(1+exp(x)) )}
 
+shark_prep_mulT<-function(sdf,tlag){
+  #print(unique(sdf$ID))
+  sdf$Reward<-factor(gsub(" ","",sdf$RewardType),levels = c("Reward","NoReward"))
+  sdf$uCond<-interaction(sdf[c("Transition","Reward")],sep = "_")
+  for(uc in levels(sdf$uCond)){
+    sdf[[uc]]<-0
+    sdf[[uc]][sdf$uCond %in% uc & !is.na(sdf$choice1)]<-gsub(2,-1,sdf$choice1)[sdf$uCond %in% uc & !is.na(sdf$choice1)]
+    sdf[[uc]][is.na(sdf$choice1)]<-NA
+    sdf[[uc]][is.na(sdf$uCond)]<-NA
+    sdf[[uc]]<-as.numeric(sdf[[uc]])
+    for(tg in 0:tlag){
+      sdf[[paste(uc,tg,sep="_")]]<-dplyr::lag(sdf[[uc]],tg)
+    }
+    
+    sdf$Stay1_lag<-dplyr::lag(sdf$Stay1,1)
+    sdf$ChoiceS1<-as.numeric(gsub(2,0,sdf$choice1))
+    sdf$ChoiceS1_lag<-dplyr::lag(sdf$ChoiceS1,1)
+    sdf$ChoiceS1_lead<-dplyr::lead(sdf$ChoiceS1,1)
+  }
+  
+  return(sdf)
+}
