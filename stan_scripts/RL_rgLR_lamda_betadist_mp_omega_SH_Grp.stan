@@ -23,6 +23,8 @@ parameters {
   real<lower=0> omega_s;
   real beta_2_m;
   real<lower=0> beta_2_s;
+  real lamda_m;
+  real<lower=0> lamda_s;
   
   real alpha_sh_m;
   real beta1_sh_m;
@@ -51,6 +53,7 @@ parameters {
   vector[nS] omega_raw;
   
   vector[nS] beta_2_raw;
+  vector[nS] lamda_raw;
   
   vector[nS] pers_raw;
   vector[nS] Mo_pers_raw;
@@ -68,11 +71,13 @@ transformed parameters {
   vector[2] beta_1_normal[nS];
   vector[2] omega_normal[nS];
   vector[nS] beta_2_normal;
+  vector[nS] lamda_normal;
   
   vector<lower=0,upper=1>[2] alpha[nS];
   vector<lower=0>[2] beta_1[nS];
   vector<lower=0,upper=1>[2] omega[nS];
   vector<lower=0>[nS] beta_2;
+  vector<lower=0,upper=1>[nS] lamda;
   
   vector<lower=0>[2] beta_1_MB[nS];
   vector<lower=0>[2] beta_1_MF[nS];
@@ -113,7 +118,7 @@ transformed parameters {
     }
   }
   beta_2_normal = beta_2_m + (beta_2_s*beta_2_raw);
-  
+  lamda_normal = lamda_m + (lamda_s * lamda_raw);
   pers = pers_m + pers_s*pers_raw;
   Mo_pers = Mo_pers_m + Mo_pers_s * Mo_pers_raw;
   
@@ -122,6 +127,7 @@ transformed parameters {
   beta_1 = exp(beta_1_normal);
   
   beta_2 = exp(beta_2_normal);
+  lamda = inv_logit(lamda_normal);
   
   for (sx in 1:nS) {
     for (r in 1:2){
@@ -151,6 +157,7 @@ model {
   beta_1_m ~ normal(0,2.5);
   omega_m ~ normal(0,2.5);
   beta_2_m ~ normal(0,2.5);
+  lamda_m ~ normal(0,2.5);
   
   pers_m ~ normal(0,2.5);
   Mo_pers_m ~ normal(0,2.5);
@@ -159,6 +166,7 @@ model {
   beta_1_s ~ cauchy(0,1);
   omega_s ~ cauchy(0,1);
   beta_2_s ~ cauchy(0,1);
+  lamda_s ~ cauchy(0,1);
  
   pers_s ~ cauchy(0,1);
   Mo_pers_s ~ cauchy(0,1);
@@ -167,6 +175,7 @@ model {
   beta_1_raw ~ normal(0,1);
   omega_raw ~ normal(0,1);
   beta_2_raw ~ normal(0,1);
+  lamda_raw ~ normal(0,1);
   
   pers_raw ~ normal(0,1);
   Mo_pers_raw ~ normal(0,1);
@@ -250,7 +259,7 @@ model {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*(delta_1+lambda[s]*delta_2);
-             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1)+(alpha[s,shark[s,t]+1]*0.99*delta_2);
+             Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1)+(alpha[s,shark[s,t]+1]*lamda[s]*delta_2);
              
              Q_2[state_2[s,t],choice[s,t,2]+1] = Q_2[state_2[s,t],choice[s,t,2]+1] + alpha[s,shark[s,t]+1]*delta_2;
             
@@ -380,7 +389,7 @@ generated quantities {
              
              //update chosen values
              //Q_TD[choice[s,t,1]+1] = Q_TD[choice[s,t,1]+1] + alpha[s,shark[s,t]+1]*(delta_1+lambda[s]*delta_2);
-             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1[s,t])+(alpha[s,shark[s,t]+1]*0.99*delta_2[s,t]);
+             Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1[s,t])+(alpha[s,shark[s,t]+1]*lamda[s]*delta_2[s,t]);
              Q_2[s,t+1,state_2[s,t],choice[s,t,2]+1] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] + alpha[s,shark[s,t]+1]*delta_2[s,t];
             
              

@@ -10,3 +10,5 @@ Decision2,evtmax_1,NA,Reinf_lag,NA,Feedback_lag_d2,multiply,parametric,TRUE
 Outcome,evtmax_1,NA,Reinf,NA,Reinf_Outcome,multiply,parametric,TRUE
 Outcome,evtmax_1,NA,RareReinf,NA,RareReinf_Outcome,multiply,parametric,TRUE
 Outcome,evtmax_1,NA,Tran,NA,Transition_outcome,multiply,parametric,TRUE
+Outcome,evtmax_1,NA,delta_2,NA,RPE_stage2_outcome,multiply,parametric,TRUE
+Decision2,evtmax_1,NA,RPE_MB,NA,RPE_stage1_dec2,multiply,parametric,TRUE

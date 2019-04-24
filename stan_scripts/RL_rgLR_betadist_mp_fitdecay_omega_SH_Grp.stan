@@ -368,14 +368,14 @@ generated quantities {
         if(skip_choice[s,t,1]==0) {
           
         log_lik[s,t,1] = bernoulli_logit_lpmf(choice[s,t,1] | ((Q_TD[s,t,2]-Q_TD[s,t,1])*beta_1_MF[s,shark[s,t]+1]) + ((Q_MB[s,t,2]-Q_MB[s,t,1])*beta_1_MB[s,shark[s,t]+1])+(pers[s]*prev_choice) + (Mo_pers[s]*prev_motor));
-        } else {log_lik[s,t,1] = 0;}
+        } else {log_lik[s,t,1] = -999;}
         prev_choice = (2*choice[s,t,1])-1; //1 if choice 2, -1 if choice 1
         prev_motor = motorchoice[s,t,1];
         
         if (missing_choice[s,t,2]==0) {
           if(skip_choice[s,t,2]==0) {
           log_lik[s,t,2] = bernoulli_logit_lpmf(choice[s,t,2] | ((Q_2[s,t,state_2[s,t],2]-Q_2[s,t,state_2[s,t],1])*beta_2[s]));
-          } else {log_lik[s,t,2] = 0;}
+          } else {log_lik[s,t,2] = -999;}
           //use if not missing 2nd stage reward
           //if (missing_reward[s,t]==0) {
             //prediction errors
@@ -416,10 +416,10 @@ generated quantities {
           //} //if missing 2nd stage reward: do nothing
           
         } else if (missing_choice[s,t,2]==1) { //if missing 2nd stage choice or reward: still update 1st stage TD values, decay 2nd stage values
-          log_lik[s,t,2] = 0;
+          log_lik[s,t,2] = -999;
           
           delta_1[s,t] = (Q_2[s,t,state_2[s,t],choice[s,t,2]+1]/alpha[s,shark[s,t]+1]) - Q_TD[s,t,choice[s,t,1]+1]; 
-          delta_2[s,t] = -998;
+          delta_2[s,t] = -999;
           Q_TD[s,t+1,choice[s,t,1]+1] = Q_TD[s,t,choice[s,t,1]+1] + (alpha[s,shark[s,t]+1]*delta_1[s,t]);
           Q_TD[s,t+1,(choice[s,t,1] ? 1 : 2)] = decay[s,shark[s,t]+1]*Q_TD[s,t,(choice[s,t,1] ? 1 : 2)];
           
@@ -436,8 +436,8 @@ generated quantities {
          
         }
       } else { //if missing 1st stage choice: decay all TD & 2nd stage values
-      log_lik[s,t,1] = 0;
-      log_lik[s,t,2] = 0;
+      log_lik[s,t,1] = -999;
+      log_lik[s,t,2] = -999;
       Q_TD[s,t+1,1] = decay[s,shark[s,t]+1]*Q_TD[s,t,1];
       Q_TD[s,t+1,2] = decay[s,shark[s,t]+1]*Q_TD[s,t,2];
       Q_2[s,t+1,1,1] = decay[s,shark[s,t]+1]*Q_2[s,t,1,1];

@@ -239,7 +239,7 @@ model {
           //if (missing_reward[s,t]==0) {
              //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1 = Q_2[state_2[s,t],choice[s,t,2]+1] - Q_TD[choice[s,t,1]+1]; 
+             delta_1 = fmax(Q_2[state_2[s,t],1],Q_2[state_2[s,t],2]) - Q_TD[choice[s,t,1]+1]; 
              delta_2 = reward[s,t] - Q_2[state_2[s,t],choice[s,t,2]+1];
              
              
@@ -370,7 +370,7 @@ generated quantities {
           //if (missing_reward[s,t]==0) {
             //prediction errors
              //note: choices are 0/1, +1 to make them 1/2 for indexing
-             delta_1[s,t] = Q_2[s,t,state_2[s,t],choice[s,t,2]+1] - Q_TD[s,t,choice[s,t,1]+1]; 
+             delta_1[s,t] = fmax(Q_2[s,t,state_2[s,t],1],Q_2[s,t,state_2[s,t],2]) - Q_TD[s,t,choice[s,t,1]+1]; 
              delta_2[s,t] = reward[s,t] - Q_2[s,t,state_2[s,t],choice[s,t,2]+1];
              
              //update transition counts: if choice=0 & state=1, or choice=1 & state=2, update 1st

@@ -9,8 +9,9 @@ require("dplyr")
 #Script Wide Arguments:
 reloaddata<-F
 runGroupComparison<-F
-runHConly<-T
-  
+runHConly<-F
+excludeID<-c("221680","221036","221036_WRONG")
+
 parallenum=parallel::detectCores()/2
 source('shark_utility.R')
 
@@ -18,9 +19,7 @@ if(reloaddata){
   source('behaviroal/shark_beh_analyses_import_process.R')
 } else {load("shark1.RData")}
 
-
-
-argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
+argu<-as.environment(list(nprocess=10,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
                           proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
                           gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
@@ -36,15 +35,29 @@ argu$randomize_thresholdingways<-c("tfce","voxel-based","cluster-based-extent","
 argu$ss_zthreshold<-3.2  #This controls the single subject z threshold (if enabled in template)
 argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabled in template)
 getRLpara=F
+
+
+
+
+#Model Selection
+base_model=T
+pe_model_MB=F
+pe_daw=F
 #Model Basic Event Mapping;
 if(base_model){
   argu$model.name<-"BasicModel"
   argu$gridpath<-"./grids/basic.csv"
   #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
 } 
-if(pe_model){
-  argu$model.name<-"PE_basic"
-  argu$gridpath<-"./grids/PE_basic.csv"
+if(pe_model_MB){
+  argu$model.name<-"PE_basic_MB"
+  argu$gridpath<-"./grids/PE_basic_MB.csv"
+  getRLpara<-T
+}
+
+if(pe_daw){
+  argu$model.name<-"PE_MB"
+  argu$gridpath<-"./grids/PE_MB.csv"
   getRLpara<-T
 }
 
@@ -67,17 +80,22 @@ shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
 })
 names(shark_fsl_data)<-as.character(unique(bdf$ID))
 shark_fsl_data<-cleanuplist(shark_fsl_data)
+shark_fsl_data<-shark_fsl_data[-which(names(shark_fsl_data) %in% excludeID)]
 if(runHConly) {
 shark_fsl_data<-shark_fsl_data[sapply(shark_fsl_data,function(kr){unique(kr$dfx$Group)==1})]
 }
 
 if(runGroupComparison){
-  allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
-  allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
-  bdf$Group<-as.character(bdf$Group)
-  #Fix it before going in;
-  refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
+  refdf<-unique(bdf[c("ID","Group")])
+  names(refdf)<-c("ID","grp")
+  refdf<-refdf[!refdf$ID %in% excludeID,]
+  # allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
+  # allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
+  # bdf$Group<-as.character(bdf$Group)
   # 
+  # 
+  # #Fix it before going in;
+  #refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
   # refdf$grp[refdf$grp!=1]<-"DEP"
   # refdf$grp[refdf$grp==1]<-"HC"
   #allbpd against controls:
@@ -85,11 +103,13 @@ if(runGroupComparison){
   argu$supplyidmap<-lapply(split(refdf,refdf$grp),function(rx){
     list(ID=rx$ID,name=unique(rx$grp))
   })
+  
   argu$whichttest<-c("onesample")
   argu$group_id_sep<-unique(refdf$grp)
+  print(sapply(argu$supplyidmap,function(x){length(x$ID)}))
   
   #We can now call argu to do it again; 
-  argu$onlyrun<-5:6
+  #argu$onlyrun<-5:6
 }
 
 

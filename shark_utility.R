@@ -47,7 +47,7 @@ cleanuplist<-function(listx){
   return(listx)
 }
 #Generate probability function
-genProbability<-function(dfx,condition=c("Context","Emotion"),response=c("FaceResponseText"),excludeNA=T,missresp=NA) {
+genPercentage<-function(dfx,condition=c("Context","Emotion"),response=c("FaceResponseText"),excludeNA=T,missresp=NA,lablevar=T) {
   if (excludeNA) {
     if (is.na(missresp)) {
       dfx<-dfx[which(!is.na(dfx[[response]])),] } else {dfx<-dfx[which(dfx[[response]]!=missresp),]}
@@ -68,12 +68,65 @@ genProbability<-function(dfx,condition=c("Context","Emotion"),response=c("FaceRe
     }
     rownames(prob)<-NULL
     prob$ID<-unique(dfx$ID)
-    lableVar(prob)
+    if(lablevar){
+      lableVar(prob)
+    } 
+    return(prob)
   }) )
   
   return(nwx)
 }
 
+behav_qc_general<-function(datalist=NULL,p_name="",logic_sp=NULL,resp_toget=NULL,resp_var=NULL,rt_var=NULL){
+  all_stats<-lapply(datalist,function(dfa){
+    # print(unique(dfa$ID))
+    if(nrow(dfa)>0){
+      if(!is.null(resp_toget)){
+        gp<-genPercentage(dfa,condition = logic_sp,response = resp_var,lablevar = F)
+        gp<-gp[gp$resp==resp_toget,]
+        
+        if(!is.null(gp) && nrow(gp)>0){
+          gpp<-gp$p[apply(gp[logic_sp],1,function(x){!any(!as.logical(x))})]
+        }else {gpp<-NA}
+      } else {gpp<-NA}
+      
+      if(!is.null(resp_var)){
+        y<-rle(as.character(dfa[[resp_var]]))
+        max_rep_l<-max(sapply(unique(dfa[[resp_var]]),function(toget){
+          
+          max(y$lengths[y$values %in% toget])
+          
+        })) / nrow(dfa)
+        sum_rep<-sum(y$lengths-1) / nrow(dfa)
+      } else {
+        max_rep_l<-NA
+        sum_rep<-NA
+      }
+      
+      if(any(as.numeric(dfa[[rt_var]])>900,na.rm = T)) {
+        rt<-as.numeric(dfa[[rt_var]])/1000
+      } else {rt<-as.numeric(dfa[[rt_var]])}
+      rt[rt==0]<-NA
+      
+      if(any(rt<0.05,na.rm = T)){
+        rtp<-length(which(rt<0.1)) / length(rt)
+      } else {rtp<-0}
+      
+      rt_mean<-mean(rt,na.rm=T)
+      rt_swing<-sd(-(1/rt),na.rm = T)
+      
+      
+      
+      data.frame(sum_rep=sum_rep,max_rep=max_rep_l,logic_p=gpp[1],rt_ptfast=rtp,rt_mean=rt_mean,rt_swing=rt_swing,pra_name=p_name)
+    } else {
+      data.frame(sum_rep=NA,max_rep=NA,logic_p=NA,rt_ptfast=NA,rt_mean=NA,rt_swing=NA,pra_name=p_name)
+    }
+  })
+  df_stats<-do.call(rbind,all_stats)
+  df_stats$ID<-names(all_stats)
+  rownames(df_stats)<-NULL
+  return(df_stats)
+}
 
 vif.lme <- function (fit) {
   ## adapted from rms::vif
@@ -90,7 +143,7 @@ vif.lme <- function (fit) {
   v }
 
 shark_proc<-function(dfx) {
-  dfx$ID <- as.factor(dfx$ID)
+  #dfx$ID <-dfx$ID
   
   dfx$keycode1[dfx$keycode1==0]<-NA
   dfx$keycode2[dfx$keycode2==0]<-NA
@@ -169,6 +222,7 @@ shark_proc<-function(dfx) {
   
   meh<-lapply(dfx,class)
   meh$trial<-NULL
+  meh$ID<-NULL
   for (ik in names(meh)) {
     if (meh[[ik]] %in% c("logical","integer","character")) {
       dfx[,ik]<-as.factor(dfx[,ik])
@@ -187,7 +241,7 @@ shark_exclusion<-function(dfx=NULL, missthres=NA,comreinfstaythres=NA,P_staycomr
   p_miss_if<- p_miss < missthres
   } else {p_miss_if<-TRUE;}
   
-  z<-genProbability(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
+  z<-genPercentage(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
   p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
   if(!is.na(comreinfstaythres)){
     if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
@@ -296,8 +350,14 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   dfx$Trial<-dfx$trial
   if(comboRLpara && !is.null(RLparadf)){
     dfx<-merge(dfx,RLparadf,all.x = T,by = c("ID","Trial"))
+    for(xrz in c("RPE_MB","RPE_MF","RPE_diff","delta_2")){
+      dfx[[xrz]]<-as.numeric(scale(dfx[[xrz]]))
+    }
+    
+    
   }
   
+  dfx<-dfx[order(dfx$Trial),]
   dfx$Trial<-as.numeric(unlist(lapply(split(dfx$trial,dfx$Run),seq_along)))
   #Gen QC regressors:
   dfx$QC_OUT<-sample(1:0,length(dfx$Trial),replace = T)
@@ -318,8 +378,21 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   dfx$ModelBaseShark<-dfx$Tran * dfx$Reinf * dfx$SharkBlock
   dfx$ModelBase_lagShark<-dfx$ModelBase_lag * dfx$SharkBlock
   
-  dfx$RareNotReinf<-as.numeric(as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))
+  dfx$RareNotReinf<-as.numeric(as.logical(dfx$ifRare) & !as.logical(dfx$ifReinf))
   dfx$RareNotReinf_lag<-dplyr::lag(dfx$RareNotReinf)
+  
+  dfx$RareReinf<-as.numeric(as.logical(dfx$ifRare)) * as.numeric(as.logical(dfx$ifReinf)) 
+  dfx$RareReinf_lag<-dplyr::lag(dfx$RareNotReinf)
+  
+  #Shark 
+  dfx$SharkTran<-dfx$Tran * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$SharkTran_lag<-dfx$Tran_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  
+  dfx$SharkReinf<-dfx$Reinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$SharkReinf_lag<-dfx$Reinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  
+  dfx$SharkRR<-dfx$RareReinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$SharkRR_lag<-dfx$RareReinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
   
   dfx_sp<-split(dfx,dfx$Block)
   shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
@@ -625,8 +698,7 @@ shark_prep_mulT<-function(sdf,tlag){
   return(sdf)
 }
 
-stan_ex_clean<-function(dout=NULL,FUNCX=median){
-  lout<-lapply(dout,function(lsx){
+stan_ex_clean<-function(lsx=NULL,FUNCX=median){
     if(length(dim(lsx))>1){
       gx<-apply(lsx,2:length(dim(lsx)),FUNCX)
     } else {
@@ -634,9 +706,28 @@ stan_ex_clean<-function(dout=NULL,FUNCX=median){
     }
     gx[gx< (-990)]<-NA
     return(gx)
-  })
-  return(lout)
 }
+
+colVars <- function (a){
+  diff <- a - matrix (colMeans(a), nrow(a), ncol(a), byrow=TRUE)
+  vars <- colMeans (diff^2)*nrow(a)/(nrow(a)-1)
+  return (vars)
+}
+
+get_WAIC <- function (log_lik){
+  log_lik[is.na(log_lik)]<-0
+  log_lik[log_lik< (-990)]<-0
+  lppd <- sum (log (colMeans(exp(log_lik))))
+  p_waic_1 <- 2*sum (log(colMeans(exp(log_lik))) - colMeans(log_lik))
+  p_waic_2 <- sum (colVars(log_lik))
+  waic_2 <- -2*lppd + 2*p_waic_2
+  return (list (waic=waic_2, p_waic=p_waic_2, lppd=lppd, p_waic_1=p_waic_1))
+}
+
+
+
+
+
 
 
 

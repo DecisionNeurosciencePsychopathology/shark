@@ -238,7 +238,7 @@ ggplot(beta_1_MB_df,aes(x=inv_logit(value)))+geom_histogram(bins = 30)+facet_wra
 STANFITOUT<-RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15$stanfit_RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15
 STANFITOUT<-RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex
 DATALIST<-RL_betadist_mp_omega_SH_Grp_allex$data_list
-RLXR<-extract(STANFITOUT)
+RLXR<-extract(stanfit_RL_betadist_mp_omega_SH_Grp_allex)
 pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
           "beta_2_m","pers_m","alpha_s","beta_1_MF_s","beta_1_MB_s",
           "beta_2_s","pers_s")
@@ -250,7 +250,7 @@ xz<-lapply(1:dim(RLXR$omega)[2],function(x){
   do.call(rbind,lapply(names(xt),function(zt){
     rxt<-data.frame(value=xt[[zt]],type=zt)
     rxt$ID<-x
-    rxt$grp<-RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15$data_list$Group[x]
+    rxt$grp<-data_list$Group[x]
     return(rxt)
   })
   )
@@ -258,18 +258,11 @@ xz<-lapply(1:dim(RLXR$omega)[2],function(x){
 xzd<-do.call(rbind,xz)
 xzd$ID<-as.factor(xzd$ID)
 xzd$grp<-as.factor(xzd$grp)
-ggplot(xzd,aes(x=grp, y = value,color=type))+geom_boxplot()
+ggplot(xzd,aes(x=grp, y=value,color=type))+geom_boxplot()
 
 
 
-get_p_sample<-function(x=NULL,sample_l=NULL,pop_mean=NULL,pop_sd=NULL){
-  if(is.null(pop_mean) | is.null(pop_sd)){
-    if(is.null(sample_l)){stop("No informaiton about distribution")}
-    pop_sd <- sd(sample_l)*sqrt((length(sample_l)-1)/(length(sample_l)))
-    pop_mean <- mean(sample_l) 
-  }
-  return(pnorm(x, pop_mean, pop_sd))
-}
+
 
 
 
@@ -298,21 +291,14 @@ jrx$grp<-as.factor(jrx$grp)
 ggplot(data.frame(MF_SH=apply(RLXR$b1MF_sh,2,median),MB_SH=apply(RLXR$b1MB_sh,2,median),grp=as.factor(RL_betadist_mp_SH_Grp$data_list$Group)),
        aes(x=MF_SH,y=MB_SH,color=grp)) + geom_point()
 ########################################Do extract 
-dout<-extract(RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex)
 #Get the values 
+lout<-stan_ex_clean(dout = RL_rgLR_betadist_mp_omega_SH_Grp_allex$extracted_fit,FUNCX = median,numcores = 10)
 
-lout$delta_2[lout$delta_2 < (-990)]<-NA
-lout$delta_1[lout$delta_1 < (-990)]<-NA
+#fitxr <- stan(file="stan_scripts/RL_betadist_mp_omega_SH_Grp.stan",data = RL_betadist_mp_omega_SH_Grp_allex$data_list,iter=1, chains=1,seed=424546151,init = list(chain1=lout), algorithm="Fixed_param")
+data_list<-RL_rgLR_lamda_betadist_mp_omega_SH_Grp_allex$data_list
 
-lout$Q_TD[lout$Q_TD < (-990)]<-NA
-lout$Q_TD[lout$Q_TD < (-990)]<-NA
-
-fitxr <- stan(file="stan_scripts/RL_betadist_mp_omega_SH_Grp.stan",data = RL_betadist_mp_omega_SH_Grp_allex$data_list,iter=1, chains=1,seed=424546151,init = list(chain1=lout), algorithm="Fixed_param")
-data_list<-RL_betadist_mp_omega_SH_Grp_allex$data_list
-xr<-stan_ex_clean(extract(fitxr),FUNCX = median)
-
-
-parstoget<-c("RPE_MB","RPE_MF","RPE_diff")
+parstoget<-c("RPE_MB","RPE_MF","RPE_diff","delta_2","delta_1")
+xr<-lapply(RL_rgLR_lamda_betadist_mp_omega_SH_Grp_allex$extracted_fit[parstoget],stan_ex_clean)
 shark_rl_df<-lapply(1:data_list$nS,function(sx){
   rox<-lapply(parstoget,function(parx){
       xr[[parx]][sx,]
@@ -325,6 +311,53 @@ shark_rl_df<-lapply(1:data_list$nS,function(sx){
 })
 names(shark_rl_df)<-sapply(shark_rl_df,function(kr){unique(kr$ID)})
 save(shark_rl_df,file = "shark_rl_df.rdata")
+
+subnum<-2
+#Q2_ch<-lout$Q_2[2,,,]
+cbind(lout$Q_TD[2,1:100,],data_list$choice[2,,1],round(lout$delta_1[2,],2),sapply(1:data_list$nT,function(t){
+  lout$Q_2[subnum,t,data_list$state_2[subnum,t],data_list$choice[subnum,t,2]+1]
+}),round(lout$delta_2[2,],2)
+)
+
+
+lexRL<-exRL[c("Q_TD","delta_1","delta_2","Q_2")]
+lout<-lapply(lexRL,stan_ex_clean)
+
+subnum<-2
+dfx<-data.frame(cbind(lout$Q_TD[subnum,1:100,],(data_list$choice[subnum,,1]+1),data_list$state_2[subnum,],(data_list$choice[subnum,,2]+1),round(lout$delta_1[subnum,],2),sapply(1:data_list$nT,function(t){
+  lout$Q_2[subnum,t,data_list$state_2[subnum,t],data_list$choice[subnum,t,2]+1]
+}),round(lout$delta_2[subnum,],2)
+))
+names(dfx)<-c("Q_TD_1","Q_TD_2","Spaceship","Planet","Alien","delta1","Q2_chosen","delta2")
+dfx$Alien<-dfx$Alien + (2 * (dfx$Planet-1) )
+dfx$trial <- 1:nrow(dfx)
+#dfx$alpha<-alpha_all[subnum,1]
+dfx$ifCommon <- dfx$Spaceship == dfx$Planet
+ggplot(dfx) + geom_line(aes(trial,Q_TD_1, color = 'Spaceship1')) + geom_line(aes(trial,Q_TD_2, color = 'Spaceship2')) + geom_point(aes(trial,(2-Spaceship))) + geom_line(aes(trial,Q2_chosen, lty = as.factor(Alien)))
+
+
+omegas<-extract(stanfit_RL_betadist_mp_omega_SH_Grp_allex,pars=c("omega_grp","omega_m","omega_sh_m","omega_sh_grp"))
+
+
+
+
+para="alpha"
+dxr=c("_grp","_m","_sh_m","_sh_grp")
+out=extract(stanfit_RL_betadist_mp_omega_SH_Grp_allex,pars=paste(para,dxr,sep = ""))
+
+for(sepx in c("","_sh")){
+  print(sepx)
+  print(0)
+  basex=out[[paste0(para,sepx,"_m")]]
+  print(summary((basex)))
+  #print(get_p_sample(x = 0,sample_l = inv_logit(basex)))
+  for(xi in 1:3){
+    print(xi)
+    tarx=(  out[[paste0(para,sepx,"_grp")]][,xi] )
+    print(summary(tarx))
+    #print(get_p_sample(x = 0,sample_l = tarx))
+  }
+}
 
 
 

@@ -45,8 +45,8 @@ if(file.exists("shark_rawdata.rdata")){
 load("shark_rawdata.rdata")} else {shark_data<-list()}
 shark_ID<-shark_ID[!shark_ID %in% names(shark_data)]
 if(length(shark_ID)>0){
-cl<-parallel::makeForkCluster(nnodes = 4)
-shark_data_new<-parallel::parLapply(cl,shark_ID,function(x) {
+clxg<-parallel::makeForkCluster(nnodes = 4)
+shark_data_new<-parallel::parLapply(clxg,shark_ID,function(x) {
   if (length(list.files(file.path(rootdir,x),'*_workspace_ouput.mat'))>0) {
     print(x)
     tryCatch({
@@ -65,16 +65,13 @@ shark_data_proc <- lapply(shark_data,shark_proc)
 
 #plot(sapply(shark_data_proc,function(xj){length(which(xj$choice1==0)) / length(xj$choice1)}))
 
-# NUX<-lapply(xshark_lessthanone,function(xj){
-#   jpeg(paste0(unique(xj$ID),'_plot.jpeg'),width = 8,height = 4.5,res = 300,units = "in")
-#   plot(xj$trial,xj$choice1,main = unique(xj$ID))
-#   points(xj$trial[xj$choice1==2 & xj$ifWon],xj$won[xj$choice1==2 & xj$ifWon]+1,col="red",pch=20)
-#   points(xj$trial[xj$choice1==1 & xj$ifWon],xj$won[xj$choice1==1 & xj$ifWon],col="red",pch=20)
-#   points(xj$trial[xj$ifRare],xj$ifRare[xj$ifRare]+0.5,col="blue",pch=20)
-#   dev.off()
-# })
 message("Number of subject before clean up: ",length(shark_data_proc))
-shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.15,P_staycomreinfchance=0.05,comreinfstaythres=0.0,returnstats=F))
+shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.2,P_staycomreinfchance=NA,comreinfstaythres=NA,returnstats=F))
+shark_behav_qc_mo<-behav_qc_general(datalist=shark_data_proc_exclude,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),resp_var="keycode1",resp_toget="1",rt_var="rts1")
+shark_behav_qc_ch<-behav_qc_general(datalist=shark_data_proc_exclude,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),resp_var="choice1",resp_toget="1",rt_var="rts1")
+
+excludeIDs<-unique(c(shark_behav_qc_mo$ID[which(shark_behav_qc_mo$max_rep > 0.3)], shark_behav_qc_ch$ID[which(shark_behav_qc_ch$max_rep >= 0.9)]))
+shark_data_proc_exclude<-shark_data_proc_exclude[which(!names(shark_data_proc_exclude) %in% excludeIDs)]
 message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
 
 
@@ -130,7 +127,7 @@ bdf$depress <- as.factor(as.numeric(bdf$Group)>1) #NON-CONTROL
 bdf$GROUP1245<-as.factor(bdf$GROUP1245)
 bdf$GROUP12467<-as.factor(bdf$GROUP12467)
 bdf$Group<-as.factor(bdf$Group)
-bdf$ID <- as.factor(bdf$ID)
+#bdf$ID <- as.factor(bdf$ID)
 bdf$`GENDER TEXT`<-as.factor(bdf$`GENDER TEXT`)
 
 bdf$edu_group<-NA
