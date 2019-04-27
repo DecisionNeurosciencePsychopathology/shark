@@ -235,10 +235,9 @@ allgrps<-lapply(c("1","2","4","5"), function(grp){
 ggplot(beta_1_MB_df,aes(x=inv_logit(value)))+geom_histogram(bins = 30)+facet_wrap(~grp)
 #+geom_line(aes(Trial,Q_TD_1,color="1"))+geom_line(aes(Trial,Q_TD_2,color="2"))
 
-STANFITOUT<-RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15$stanfit_RL_rgLR_betadist_mp_nodecay_omega_SH_Grp_allex15
-STANFITOUT<-RL_betadist_mp_omega_SH_Grp_allex$stanfit_RL_betadist_mp_omega_SH_Grp_allex
-DATALIST<-RL_betadist_mp_omega_SH_Grp_allex$data_list
-RLXR<-extract(stanfit_RL_betadist_mp_omega_SH_Grp_allex)
+STANFITOUT<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$stanfit
+DATALIST<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$data_list
+RLXR<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$extracted_fit
 pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
           "beta_2_m","pers_m","alpha_s","beta_1_MF_s","beta_1_MB_s",
           "beta_2_s","pers_s")
@@ -250,7 +249,7 @@ xz<-lapply(1:dim(RLXR$omega)[2],function(x){
   do.call(rbind,lapply(names(xt),function(zt){
     rxt<-data.frame(value=xt[[zt]],type=zt)
     rxt$ID<-x
-    rxt$grp<-data_list$Group[x]
+    rxt$grp<-DATALIST$Group[x]
     return(rxt)
   })
   )
@@ -258,7 +257,7 @@ xz<-lapply(1:dim(RLXR$omega)[2],function(x){
 xzd<-do.call(rbind,xz)
 xzd$ID<-as.factor(xzd$ID)
 xzd$grp<-as.factor(xzd$grp)
-ggplot(xzd,aes(x=grp, y=value,color=type))+geom_boxplot()
+ggplot(xzd,aes(x=grp, y=value,color=type))+geom_violin()
 
 
 
@@ -295,10 +294,10 @@ ggplot(data.frame(MF_SH=apply(RLXR$b1MF_sh,2,median),MB_SH=apply(RLXR$b1MB_sh,2,
 lout<-stan_ex_clean(dout = RL_rgLR_betadist_mp_omega_SH_Grp_allex$extracted_fit,FUNCX = median,numcores = 10)
 
 #fitxr <- stan(file="stan_scripts/RL_betadist_mp_omega_SH_Grp.stan",data = RL_betadist_mp_omega_SH_Grp_allex$data_list,iter=1, chains=1,seed=424546151,init = list(chain1=lout), algorithm="Fixed_param")
-data_list<-RL_rgLR_lamda_betadist_mp_omega_SH_Grp_allex$data_list
+data_list<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$data_list
 
 parstoget<-c("RPE_MB","RPE_MF","RPE_diff","delta_2","delta_1")
-xr<-lapply(RL_rgLR_lamda_betadist_mp_omega_SH_Grp_allex$extracted_fit[parstoget],stan_ex_clean)
+xr<-lapply(RL_rgLR_betadist_mp_omega_SH_Grp_allex$extracted_fit[parstoget],stan_ex_clean)
 shark_rl_df<-lapply(1:data_list$nS,function(sx){
   rox<-lapply(parstoget,function(parx){
       xr[[parx]][sx,]

@@ -353,11 +353,6 @@ run_shark_stan(data_list=shark_stan_prep(shark_split_all,grpchoice = "hc_dep"),s
                savepath="stan_scripts/stan_output",open_shinystan=F)
 
 #Get new ones
-run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_rgLR_betadist_mp_omega_SH_Grp.stan',
-               add_data = list(factorizedecay=0),
-               modelname="RL_rgLR_betadist_mp_omega_SH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,
-               savepath="stan_scripts/stan_output",open_shinystan=F)
-
 run_shark_stan(data_list=shark_stan_prep(shark_split_all),stanfile='stan_scripts/RL_rgLR_betadist_mp_nodecay_omega_simpSH_Grp.stan',
                add_data = list(factorizedecay=0),
                modelname="RL_rgLR_betadist_mp_nodecay_omega_simpVSH_Grp_allex",stan_args="default",assignresult=T,iter = 5000,forcererun = F,chains = 4,

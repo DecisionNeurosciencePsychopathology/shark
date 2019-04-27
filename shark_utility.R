@@ -353,8 +353,6 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
     for(xrz in c("RPE_MB","RPE_MF","RPE_diff","delta_2")){
       dfx[[xrz]]<-as.numeric(scale(dfx[[xrz]]))
     }
-    
-    
   }
   
   dfx<-dfx[order(dfx$Trial),]
@@ -408,6 +406,11 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   finalist<-list(Decision1=data.frame(event="Decision1",
                                       onset=dfx$stim1.ons.ms/1000,
                                       duration=dfx$rts1,
+                                      run=dfx$Run,
+                                      trial=dfx$Trial),
+                 Onset2Dec2s=data.frame(event="Onset2Dec2s",
+                                      onset=dfx$stim2.ons.ms/1000,
+                                      duration=2,
                                       run=dfx$Run,
                                       trial=dfx$Trial),
                  Decision2=data.frame(event="Decision2",

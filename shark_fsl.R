@@ -8,7 +8,7 @@ library("fslpipe")
 require("dplyr")
 #Script Wide Arguments:
 reloaddata<-F
-runGroupComparison<-F
+runGroupComparison<-T
 runHConly<-F
 excludeID<-c("221680","221036","221036_WRONG")
 
@@ -19,7 +19,7 @@ if(reloaddata){
   source('behaviroal/shark_beh_analyses_import_process.R')
 } else {load("shark1.RData")}
 
-argu<-as.environment(list(nprocess=10,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
+argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
                           regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
                           proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
                           gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
@@ -40,9 +40,9 @@ getRLpara=F
 
 
 #Model Selection
-base_model=T
+base_model=F
 pe_model_MB=F
-pe_daw=F
+pe_daw=T
 #Model Basic Event Mapping;
 if(base_model){
   argu$model.name<-"BasicModel"
@@ -58,6 +58,7 @@ if(pe_model_MB){
 if(pe_daw){
   argu$model.name<-"PE_MB"
   argu$gridpath<-"./grids/PE_MB.csv"
+  argu$centerscaleall<-T
   getRLpara<-T
 }
 
@@ -89,6 +90,10 @@ if(runGroupComparison){
   refdf<-unique(bdf[c("ID","Group")])
   names(refdf)<-c("ID","grp")
   refdf<-refdf[!refdf$ID %in% excludeID,]
+  
+  refdf$grp<-as.numeric(as.numeric(as.character(refdf$grp))>1)+1
+  refdf$grp[refdf$grp==1]<-"HC"
+  refdf$grp[refdf$grp==2]<-"CLINICAL"
   # allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
   # allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
   # bdf$Group<-as.character(bdf$Group)
@@ -104,7 +109,7 @@ if(runGroupComparison){
     list(ID=rx$ID,name=unique(rx$grp))
   })
   
-  argu$whichttest<-c("onesample")
+  argu$whichttest<-c("onesample","unpaired")
   argu$group_id_sep<-unique(refdf$grp)
   print(sapply(argu$supplyidmap,function(x){length(x$ID)}))
   

@@ -60,7 +60,7 @@ contrasts(bdf$transitionD) = contr.sum(2)
 #Star Model Currently:
 
 shark_gm <- lme4::glmer(Stay1_lead ~ Stay1  + SameKey1_lead + Transition * RewardType * BlockType * Group+ 
-                 (Transition * RewardType * BlockType| ID),
+                 (Transition * RewardType| ID),
                  family = binomial(),
                  data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
                  lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
@@ -68,9 +68,11 @@ summary(shark_gm)
 car::Anova(shark_gm, type = 'III')
 car::vif(shark_gm)
 
-sjPlot::plot_model(shark_gm,type = "pred",terms = c("RewardType","Transition","BlockType"),se = T,show.values = T,pred.type = "fe")
+a<-sjPlot::plot_model(shark_gm,type = "pred",terms = c("RewardType","Transition","BlockType"),se = T,show.values = T,pred.type = "fe")
 
-emmeansx<-emmeans(shark_gm,specs= ~ RewardType|Transition,data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
+ggsave(a,device = "pdf",filename = "choice_glmer.pdf",width = 6,height = 6)
+
+emmeansx<-emmeans(shark_gm,specs= ~ RewardType*Transition*BlockType|Group,data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=prob, fill=Transition)) + 
   geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
@@ -79,7 +81,7 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=prob, fill=Transition)) +
     #middle = emmean, 
     ymin = prob - 2*SE, 
     ymax = prob + 2*SE),
-    stat = "identity",position=position_dodge(.9),width=.2) 
+    stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~Group+BlockType,ncol=2)
 
 
 m1shark_hc <- glmer(Stay1_lead ~  Stay1  + SameKey1_lead +
@@ -117,7 +119,7 @@ sjPlot::plot_model(rtshark1,type = "pred",terms=c("Transition","Group"))
 sjPlot::plot_model(rtshark1,type = "pred",terms=c("BlockType","RewardType","Transition"))
 sjPlot::plot_model(rtshark1,type = "pred",terms=c("Group","RewardType","Transition"))
 
-ggplot(bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),], aes(y = rts1_lead,x=RewardType,color=Transition)) +
+ggplot(bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),], aes(y = Transition,x=rts1_lead)) +
   geom_density_ridges(scale = 4) + theme_ridges() +
   scale_y_discrete(expand = c(0.01, 0)) +   # will generally have to set the `expand` option
   scale_x_continuous(expand = c(0, 0)) 

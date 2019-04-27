@@ -2,5 +2,6 @@ ename,norm,normargu,valuefrom,modifier,name,style,comment,AddNeg
 Decision1,evtmax_1,NA,Decision1_evt,NA,Decision1_evt,multiply,parametric,FALSE
 Decision2,evtmax_1,NA,Decision2_evt,NA,Decision2_evt,multiply,taskness,FALSE
 Outcome,evtmax_1,NA,Outcome_evt,NA,Outcome_evt,multiply,parametric,FALSE
-Outcome,evtmax_1,NA,delta_2,NA,RPE_stage2_outcome,multiply,parametric,TRUE
-Decision2,evtmax_1,NA,RPE_MB,NA,RPE_MB_dec2,multiply,parametric,TRUE
+Outcome,evtmax_1,NA,delta_2,NA,RPE_stage2_outcome,multiply,parametric,FALSE
+Onset2Dec2s,evtmax_1,NA,RPE_MB,NA,RPE_MB_Onset2Dec2s,multiply,parametric,FALSE
+Onset2Dec2s,evtmax_1,NA,RPE_MF,NA,RPE_MF_Onset2Dec2s,multiply,parametric,FALSE
