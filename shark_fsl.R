@@ -8,7 +8,7 @@ library("fslpipe")
 require("dplyr")
 #Script Wide Arguments:
 reloaddata<-F
-runGroupComparison<-T
+runGroupComparison<-F
 runHConly<-F
 excludeID<-c("221680","221036","221036_WRONG")
 
@@ -41,7 +41,6 @@ getRLpara=F
 
 #Model Selection
 base_model=F
-pe_model_MB=F
 pe_daw=T
 #Model Basic Event Mapping;
 if(base_model){
@@ -49,11 +48,6 @@ if(base_model){
   argu$gridpath<-"./grids/basic.csv"
   #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
 } 
-if(pe_model_MB){
-  argu$model.name<-"PE_basic_MB"
-  argu$gridpath<-"./grids/PE_basic_MB.csv"
-  getRLpara<-T
-}
 
 if(pe_daw){
   argu$model.name<-"PE_MB"
@@ -86,14 +80,33 @@ if(runHConly) {
 shark_fsl_data<-shark_fsl_data[sapply(shark_fsl_data,function(kr){unique(kr$dfx$Group)==1})]
 }
 
+
+cliniHC<-F
+attHC<-F
+IDEatt<-T
 if(runGroupComparison){
   refdf<-unique(bdf[c("ID","Group")])
   names(refdf)<-c("ID","grp")
   refdf<-refdf[!refdf$ID %in% excludeID,]
   
+  if(cliniHC){
+  #Clinical against controls:
   refdf$grp<-as.numeric(as.numeric(as.character(refdf$grp))>1)+1
   refdf$grp[refdf$grp==1]<-"HC"
   refdf$grp[refdf$grp==2]<-"CLINICAL"
+  }
+  if(attHC){
+    refdf<-refdf[refdf$grp %in% c(1,5),]
+    refdf$grp<-as.character(refdf$grp)
+    refdf$grp[refdf$grp==1]<-"HC"
+    refdf$grp[refdf$grp==5]<-"ATT"
+  }
+  if(IDEatt){
+    refdf<-refdf[refdf$grp %in% c(4,5),]
+    refdf$grp<-as.character(refdf$grp)
+    refdf$grp[refdf$grp==4]<-"IDE"
+    refdf$grp[refdf$grp==5]<-"ATT"
+  }
   # allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
   # allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
   # bdf$Group<-as.character(bdf$Group)
@@ -109,7 +122,7 @@ if(runGroupComparison){
     list(ID=rx$ID,name=unique(rx$grp))
   })
   
-  argu$whichttest<-c("onesample","unpaired")
+  argu$whichttest<-c("unpaired")
   argu$group_id_sep<-unique(refdf$grp)
   print(sapply(argu$supplyidmap,function(x){length(x$ID)}))
   

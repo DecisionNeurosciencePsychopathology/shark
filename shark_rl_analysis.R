@@ -10,11 +10,10 @@ tx<-shark_stan_prep(vb_sp)
 
 #For model evidence: We calculate the WAIC:
 
-get_summary_df(output_ls = SH_otto_l1_betadist_mp_expBeta_wShark_all,pars = c("beta_1_MB"),returnas = "data.frame",probs = 0.5)
+get_summary_df(output_ls = RL_rgLR_betadist_mp_omega_SH_Grp_allex,pars = c("omega_m"),returnas = "data.frame",probs = 0.5)
 
 
-sum<-summary(SH_otto_l1_betadist_mp_expBeta_wShark_all$stanfit_SH_otto_l1_betadist_mp_expBeta_wShark_all,pars="beta_1_MB_",probs=0.5)$summary[,paste0(0.5*100,"%")]
-
+sum<-summary(RL_rgLR_betadist_mp_omega_SH_Grp_allex$stanfit,pars="omega_m",probs=0.5)
 
 xr<-extract(ottojcmod_l1_betadist_mp_ubeta2_HC$stanfit_ottojcmod_l1_betadist_mp_ubeta2_HC)
 
@@ -243,6 +242,11 @@ pars <- c("alpha_m","beta_1_MF_m","beta_1_MB_m",
           "beta_2_s","pers_s")
 pairs(STANFITOUT,pars=c("alpha_m","alpha_grp","beta_1_m","omega_m","beta_1_s","omega_s","omega_grp","beta1_grp"))
 
+#HCmean:
+
+
+
+
 xz<-lapply(1:dim(RLXR$omega)[2],function(x){
   xt<-as.data.frame(RLXR$omega[,x,])
   names(xt)<-c("omega","omega_SH")
@@ -359,7 +363,117 @@ for(sepx in c("","_sh")){
 }
 
 
+#We don't have time now we will do it by hand
+pars<-c("omega","alpha","beta_1")
+
+#Get all the HC mean:
+tx<-c("_m","HC mean")
+HC_mean<-lapply(pars, function(x){
+  data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_m")]])),
+             type=tx[2],paratype=x,Group="HC",stringsAsFactors = F)
+})
+
+tx<-c("_grp","Group Mean")
+Grp_mean<-lapply(pars, function(x){
+  if(x=="beta_1"){y<-"beta1"}else{y<-x}
+  do.call(rbind,
+  lapply(1:3,function(ix){
+    data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_m")]])) + as.numeric(as.character(RLXR[[paste0(y,"_grp")]][,ix])),Group=ix,
+               type=paste0(ix,"_",tx[2]),paratype=x,stringsAsFactors = F)  
+  })
+  )
+})
 
 
 
+allmeans<-do.call(rbind,c(HC_mean,Grp_mean))
+allmeans$Condi<-"Baseline"
+ggplot(allmeans,aes(x=paratype,y=value,fill=Group,color=Group))+geom_violin()+ theme_bw()
+###########################
 
+xj<-summary(RL_rgLR_betadist_mp_omega_SH_Grp_allex$stanfit,pars=c("omega_normal"),probs=0.95)
+
+dim(RLXR$omega_normal)
+omega_out<-as.data.frame(apply(RLXR$omega_normal,c(2,3),median),stringsAsFactors = F)
+omega_out$Group<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$data_list$Group
+omega_out_m<-reshape2::melt(data = omega_out,id.vars=c("Group"))
+ggplot(omega_out_m,aes(Group,value,color=variable))+geom_violin()
+
+tx<-c("_sh_m","SH HC diff mean")
+HC_sh_diff<-lapply(pars, function(x){
+  if(x=="beta_1"){x<-"beta1"}
+  data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_sh_m")]])),
+             type=tx[2],paratype=x,Group="HC",stringsAsFactors = F)
+})
+
+tx<-c("_sh_grp","SH Group diff mean")
+Grp_sh_diff<-lapply(pars, function(x){
+  if(x=="beta_1"){x<-"beta1"}
+  do.call(rbind,
+          lapply(1:3,function(ix){
+            data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_sh_m")]])) + as.numeric(as.character(RLXR[[paste0(x,"_sh_grp")]][,ix])),Group=ix,
+                       type=paste0(ix,"_",tx[2]),paratype=x,stringsAsFactors = F)  
+          })
+  )
+})
+allSHdiff<-do.call(rbind,c(HC_sh_diff,Grp_sh_diff))
+
+ggplot(allSH,aes(x=paratype,y=value,fill=Group,color=Group))+geom_violin()+ theme_bw()
+
+############################
+
+tx<-c("_sh_m","SH HC mean")
+HC_SH_ALL<-lapply(pars, function(x){
+  if(x=="beta_1"){y<-"beta1"}else{y<-x}
+  data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_m")]])) + as.numeric(as.character(RLXR[[paste0(y,tx[1])]])),
+             type=tx[2],paratype=x,Group="HC",stringsAsFactors = F)
+})
+
+tx<-c("_sh_grp","SH Group Mean")
+SH_Grp_ALL<-lapply(pars, function(x){
+  if(x=="beta_1"){y<-"beta1"}else{y<-x}
+  do.call(rbind,
+          lapply(1:3,function(ix){
+            data.frame(value=as.numeric(as.character(RLXR[[paste0(x,"_m")]])) + as.numeric(as.character(RLXR[[paste0(y,"_sh_m")]])) + as.numeric(as.character(RLXR[[paste0(y,tx[1])]][,ix])) + as.numeric(as.character(RLXR[[paste0(y,"_grp")]][,ix])),Group=ix,
+                       type=paste0(ix,"_",tx[2]),paratype=x,stringsAsFactors = F)  
+          })
+  )
+})
+allTOTAL<-do.call(rbind,c(HC_SH_ALL,SH_Grp_ALL))
+
+ggplot(allTOTAL,aes(x=paratype,y=value,fill=Group,color=Group))+geom_violin()+ theme_bw()
+
+###################################
+
+tx<-c("_grp","Group Difference")
+
+Grp_diff<-lapply(pars, function(x){
+  if(x=="beta_1"){x<-"beta1"}
+  lapply(1:3,function(ix){
+    data.frame(value=as.numeric(as.character(RLXR[[paste0(x,tx[1])]][,ix])),Group=ix,
+               type=paste0(ix,"_",tx[2]),paratype=x,stringsAsFactors = F)  
+  })
+})
+
+
+
+tx<-c("_grp","Group Difference")
+
+Grp_diff<-lapply(pars, function(x){
+  if(x=="beta_1"){x<-"beta1"}
+  lapply(1:3,function(ix){
+    data.frame(value=as.numeric(as.character(RLXR[[paste0(x,tx[1])]][,ix])),Group=ix,
+               type=paste0(ix,"_",tx[2]),paratype=x,stringsAsFactors = F)  
+  })
+})
+
+
+RLXR<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$extracted_fit
+DATALIST<-RL_rgLR_betadist_mp_omega_SH_Grp_allex$data_list
+para<-"omega"
+xra<-apply(RLXR[[paste0(para,"_normal")]],c(2,3),median)
+dfa<-rbind(
+data.frame(value=xra[,1],group=as.factor(DATALIST$Group),para="omega",type="baseline"),
+data.frame(value=xra[,2],group=as.factor(DATALIST$Group),para="omega",type="threat")
+)
+ggplot(dfa,aes(group,value,fill=type))+geom_boxplot(color="plum4")+scale_fill_manual(values = c("darkgoldenrod2","darkolivegreen4"))
