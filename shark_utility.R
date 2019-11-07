@@ -395,11 +395,11 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   dfx_sp<-split(dfx,dfx$Block)
   shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
     sbj<-data.frame(onset=spx$stim1.ons.ms[1]/1000,
-               duration=((spx$rew.ons.ms[length(spx$ID)]-spx$stim1.ons.ms[1])/1000),
-               run=unique(spx$Run))
+                    duration=((spx$rew.ons.ms[length(spx$ID)]-spx$stim1.ons.ms[1])/1000),
+                    run=unique(spx$Run))
     
-     if(unique(spx$SharkBlock)==1) {sbj$type<-1} else {sbj$type<-(-1)}
-      return(sbj)
+    if(unique(spx$SharkBlock)==1) {sbj$type<-1} else {sbj$type<-(-1)}
+    return(sbj)
   })))
   shark_dfx$Trial<-rep(1:2,2)
   
@@ -409,40 +409,47 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
                                       run=dfx$Run,
                                       trial=dfx$Trial),
                  Onset2Dec2s=data.frame(event="Onset2Dec2s",
-                                      onset=dfx$stim2.ons.ms/1000,
-                                      duration=2,
-                                      run=dfx$Run,
-                                      trial=dfx$Trial),
+                                        onset=dfx$stim2.ons.ms/1000,
+                                        duration=2,
+                                        run=dfx$Run,
+                                        trial=dfx$Trial),
                  Decision2=data.frame(event="Decision2",
                                       onset=dfx$stim2.ons.ms/1000,
                                       duration=dfx$rts2,
                                       run=dfx$Run,
                                       trial=dfx$Trial),
                  Outcome=data.frame(event="Outcome",
-                                     onset=dfx$rew.ons.ms/1000,
-                                     duration=1.5,
-                                     run=dfx$Run,
-                                     trial=dfx$Trial),
+                                    onset=dfx$rew.ons.ms/1000,
+                                    duration=1.5,
+                                    run=dfx$Run,
+                                    trial=dfx$Trial),
                  SharkBlock=data.frame(event="SharkBlock",
-                                     onset=shark_dfx$onset,
-                                     duration=shark_dfx$duration,
-                                     run=shark_dfx$run,
-                                     trial=shark_dfx$Trial),
+                                       onset=shark_dfx$onset,
+                                       duration=shark_dfx$duration,
+                                       run=shark_dfx$run,
+                                       trial=shark_dfx$Trial),
                  QC=data.frame(event="QC",
                                onset=dfx$stim1.ons.ms/1000,
                                duration=dfx$rts1,
                                run=dfx$Run,
                                trial=dfx$Trial)
   )
-  for (i in 1:length(finalist)) {
-    if (i==1) {ktz<-finalist[[i]]} else {
-      ktz<-rbind(ktz,finalist[[i]])}
-  }
-  finalist[["allconcat"]]<-ktz
+  # for (i in 1:length(finalist)) {
+  #   if (i==1) {ktz<-finalist[[i]]} else {
+  #     ktz<-rbind(ktz,finalist[[i]])}
+  # }
+  # finalist[["allconcat"]]<-ktz
   
   value<-as.list(dfx)
   value$SharkBlockValue<-shark_dfx$type
-  output<-list(event.list=finalist,output.df=dfx,value=value)
+  
+  #Update version:
+  sublvldfx<-unique(dfx[,names(dfx)[apply(dfx,2,function(x){length(unique(x))})==1]])
+  
+  output<-list(event.list=finalist,output.df=dfx,value=value,
+               #Here's for the new version:
+               sublevel=sublvldfx,triallvl=dfx
+               )
   return(output)
 }
 
