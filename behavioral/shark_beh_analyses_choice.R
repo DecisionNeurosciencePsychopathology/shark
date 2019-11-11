@@ -68,6 +68,13 @@ summary(shark_gm)
 car::Anova(shark_gm, type = 'III')
 car::vif(shark_gm)
 
+shark_valenceRPE<-lme4::glmer(choice2 ~ choice2_lag + state * Transition + (Transition * RewardType | ID), family = binominal(), data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
+	lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(shark_valenceRPE)
+car::Anova(shark_valenceRPE,type='III')
+
+
+
 grx<-ggpredict(shark_gm,terms = c("Transition","RewardType"),x.as.factor = T,type="fe")
 
 ggplot(grx,aes(x,predicted,fill=group))+geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
