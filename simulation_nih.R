@@ -1,7 +1,14 @@
 ###simulation study
-
+#Shark RL with Stan
+library(rstan)
+library(shinystan)
 library(dplyr)
 library(ggplot2)
+#library(loo)
+rstan_options(auto_write = TRUE)
+options(mc.cores = 4)
+source("shark_utility.R")
+
 ###build the environment: 
 
 get_s_stage <- function(f_stage_choice,mu_b){
@@ -140,7 +147,55 @@ agent_daw<- function(ntrials,omega=0.5,betas=c(2,2),alphas=c(0.3,0.3),lamda=0.8,
   return(out)
 }
 
-agent_RewardSensitivity<- function(ntrials,omega=0.5,betas=c(2,2),alphas=c(0.3,0.3),lamda=0.8,per_para=1.2,RewardSensitivity=0.8,reward_contingency=NULL,index=""){
+
+alpha_m=0.383
+alpha_s=1.582
+beta_1_MF_m=1.0
+beta_1_MF_s=0.847
+beta_1_MB_m=1.83
+beta_1_MB_s=1.899
+beta_2_m=2.263
+beta_2_s=1.196
+pers_m=0.748
+pers_s=0.471
+
+
+gen_para <- function(nsubj = NULL,
+                     alpha_m=0.2,alpha_s=1.5,
+                     beta_1_m=1,beta_1_s=1.5,
+                     beta_2_m=1,beta_2_s=1.5,
+                     omega_m=-1,omega_s=1.5,
+                     rs_m = -0.4, rs_s = 1.5,
+                     lamda = 99, lamda_s = 1.5,
+                     pers = 0, pers_s
+                     ) {
+  #generate individual parameters given specified mean, SD, and correlation
+  
+  #Fix value; 
+  set.seed(seed = 52506789)
+  
+  alphas_raw = rbind(rnorm(n = nsubj,mean = alpha_m,sd = alpha_s),rnorm(n = nsubj,mean = alpha_m,sd = alpha_s))
+  beta_raw = rbind(rnorm(n = nsubj,mean = beta_1_m,sd = beta_1_s),rnorm(n = nsubj,mean = beta_1_m,sd = beta_1_s))
+  omega_raw = rnorm(n = nsubj,mean = omega_m,sd = omega_s)
+  rs_raw = rnorm(n=nsubj,mean=rs_m,sd=rs_s)
+  lamda_raw = rnorm(n=nsubj,mean=lamda_m,sd=lamda_s)
+  pers_raw = rnorm(n=nsubj,mean=per)
+  
+  
+  alpha = 1/(1+exp(-1*alpha_raw))
+  beta = exp(beta_raw)
+  omega = 1/(1+exp(-1*omega_raw))
+  rs = 1/(1+exp(-1*rs_raw))
+  lamda = 1/(1+exp(-1*lamda_raw))
+  pers = exp(pers_raw)
+  
+
+  
+}
+
+
+
+agent_RewardSensitivity<- function(ntrials,omega=NULL,betas=NULL,alphas=NULL,lamda=NULL,per_para=NULL,RewardSensitivity=NULL,reward_contingency=NULL,index=""){
   
   #ntrials = 200
   
@@ -350,11 +405,11 @@ agent_Affect <- function(ntrials,omega=0.5,betas=c(2,2),alphas=c(0.4,0.4,0.4),af
   return(out)
 }
 ###
+ntrials = 400
 stop("functions done")
 
 reward_contingency<-R.matlab::readMat("masterprob3.mat")$payoff #(Action, State, Time)
 
-ntrials = 400
 reward_contingency = array(data = NA,dim = c(2,2,ntrials))
 for(s in 1:2) {
   for (a in 1:2){
@@ -421,25 +476,26 @@ sum_rw_df$omega <- omegas
 
 ggplot(sum_rw_df,aes(omega, mean.reward.percentage))+geom_point() + geom_line()+ylim(0,1)+ylab("reward percentage") + xlab("weighting parameter")
 ########################
-search_sensitive <- lapply(c(0,1:10/10),function(RSX){
-  out<-lapply(1:1000,agent_RewardSensitivity,RewardSensitivity=RSX,ntrials=200,omega=0.4,betas=c(4,4),alphas=c(0.4,0.4),lamda=0.5,per_para=0,reward_contingency=reward_contingency)
+search_sensitive_l1 <- lapply(c(0,1:10/10),function(RSX){
+  out<-lapply(1:1000,agent_RewardSensitivity,RewardSensitivity=RSX,ntrials=200,omega=0.4,betas=c(4,4),alphas=c(0.4,0.4),lamda=1,per_para=0,reward_contingency=NULL)
 })
-names(search_sensitive) <- paste("RS_",c(0,1:10/10))
+names(search_sensitive_l1) <- paste("RS_",c(0,1:10/10))
+
 coef_sensitive<-lapply(c(0,1:10/10),function(RSX) {
-  out<-search_sensitive[[paste("RS_",RSX)]]
+  out<-search_sensitive_l1[[paste("RS_",RSX)]]
   all_df <- do.call(rbind,lapply(out,`[[`,"df"))
   regression_model<-glm(s1_switch_lead ~ RareTrans * reward,family = binomial(),data = prep_df(all_df))
   summary(regression_model)
   ga<-last(as.data.frame(coef(regression_model))[[1]])
   
   grx<-ggeffects::ggpredict(regression_model,terms = c("reward","RareTrans"),x.as.factor = T,type="fe")
-  ggplot(grx,aes(x,predicted))+geom_boxplot(aes(
+  p<-ggplot(grx,aes(x,predicted))+geom_boxplot(aes(
     lower = predicted - std.error, 
     upper = predicted + std.error, 
     middle = predicted, 
     ymin = conf.low, 
     ymax = conf.high,fill=group),stat = "identity",position = "dodge") 
-  
+  return(list(ga,p))
 })
 
 RS_df<-data.frame(RewardSensitivity = c(0,1:10/10),RegressionCoef = unlist(coef_sensitive),stringsAsFactors = F)
@@ -448,9 +504,9 @@ ggplot(data = RS_df,aes(RewardSensitivity,RegressionCoef)) + geom_point()
 ############################
 search_omega_sensitive <- lapply(c(0,1:10/10),function(RSX){
   message("Running reward sensitivity: ",RSX)
-  search_omega<-lapply(c(0,1:10/10),function(omegaX){
-    message("Running weighting: ",omegaX)
-    out<-lapply(1:1000,agent_RewardSensitivity,RewardSensitivity=RSX,ntrials=200,omega=omegaX,betas=c(4,4),alphas=c(0.4,0.4),lamda=0.5,per_para=0,reward_contingency=reward_contingency)
+  #search_omega<-lapply(c(0,1:10/10),function(omegaX){
+    #message("Running weighting: ",omegaX)
+    out<-lapply(1:1000,agent_RewardSensitivity,RewardSensitivity=RSX,ntrials=200,omega=0.4,betas=c(4,4),alphas=c(0.4,0.4),lamda=0.5,per_para=0,reward_contingency=reward_contingency)
     #sum_of_rewards<-sapply(out,function(xs){sum(xs$df$reward)})
     # all_df <- do.call(rbind,lapply(out,`[[`,"df"))
     # all_df$omega <- omegaX
@@ -466,9 +522,9 @@ search_omega_sensitive <- lapply(c(0,1:10/10),function(RSX){
     #   ymin = conf.low, 
     #   ymax = conf.high,fill=group),stat = "identity",position = "dodge") 
     # ga<-last(as.data.frame(coef(regression_model))[[1]])
-    return(list(out=out)
-    )
-  })
+    #return(list(out=out)
+    #)
+  ##})
   #omegas<-c(0,1:10/10)
   #coefxInter<-sapply(search_omega,`[[`,"reg_coef")
   #cor.test(omegas,coefxInter)
@@ -664,6 +720,62 @@ an_mix<-lapply(nameXE,function(outN){
 })
 sum_rw_df<-do.call(rbind,an_mix)
 ggplot(sum_rw_df,aes(x=type,y=value,color=value))+geom_boxplot()+ xlab("Source of Effect on Affect") + ylab("Percentage of Reward")
+
+
+
+###Generate matrix of data for initial sensitivity: 
+
+af_LR<-c(0,1:10/10)
+af_biases <- c(0,outer((1:4 * 0.5),c(1,-1)))
+
+search_af_LRBiases <- lapply(af_LR,function(LRx){
+  mix_biaes <- lapply(af_biases,function(biasx){
+    lapply(1:1000,agent_Affect,ntrials=400,betas=c(4,4),alphas=c(0.4,0.4,LRx),af_bias=biasx,RewardSensitivity=1,lamda=0.5,per_para=0,reward_contingency=reward_contingency)
+  })
+  names(mix_biaes)<-af_biases
+  return(mix_biaes)
+})
+names(search_af_LRBiases)<-af_biases
+
+
+
+core_rx <- parallel::makeForkCluster("5")
+search_omega_sensitive <- parallel::parLapply(cl=core_rx,c(0,1:10/10),function(RSX){
+  message("Running reward sensitivity: ",RSX)
+  search_omega<-lapply(c(0,1:10/10),function(OMX){
+    message("Running weighting variable: ",OMX)
+    out<-lapply(1:100,agent_RewardSensitivity,RewardSensitivity=RSX,ntrials=200,omega=OMX,betas=c(4,4),alphas=c(0.4,0.4),lamda=0.5,per_para=0,reward_contingency=NULL)
+    out_df<-do.call(rbind,lapply(out,`[[`,"df"))
+    out_df$uID <- paste(out_df$ID,"om",gsub(".","",OMX,fixed = T),"rs",gsub(".","",RSX,fixed = T),sep = "_")
+    return(out_df)
+  })
+  s_OM_df<-do.call(rbind,search_omega)
+  return(s_OM_df)
+})
+parallel::stopCluster(core_rx)
+rs_om_df <- do.call(rbind,search_omega_sensitive)
+save(rs_om_df,file = "./simulation/omega_sensitive.rdata")
+
+gx<-run_shark_stan(data_list=shark_sim_stan_prep(rs_om_df),stanfile='stan_scripts/RL_omega_RS_sim.stan',add_data = list(factorizedecay=0),
+               modelname="RL_omega_RS_sim",stan_args="default",assignresult=T,iter = 2000,forcererun = F,chains = 4,
+               savepath="simulation/stan_output",open_shinystan=F)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

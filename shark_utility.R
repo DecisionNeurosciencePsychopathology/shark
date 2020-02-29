@@ -18,12 +18,7 @@ ProcApply<-function(listx=NULL,FUNC=NULL,...,addNAtoNull=T) {
   return(list(list=proc_ls,
               df=do.call(rbind,proc_ls)))
 }
-findbox<-function() {
-  if (Sys.getenv("USER")=="jiazhouchen") {boxdir <- "/Users/jiazhouchen/Box"
-  } else if (Sys.getenv("USER")=="jiazhou") {boxdir <- "/Volumes/bek/Box Sync"} else {
-    boxdir<-system("find ~ -iname 'Box*' -maxdepth 2 -type d",intern = T)}
-  return(boxdir)
-}
+
 cleanuplist<-function(listx){
   if (any(sapply(listx, is.null))){
     listx[sapply(listx, is.null)] <- NULL}
@@ -344,8 +339,6 @@ shark.ml.proc<-function(bdf=NULL,include.clinical=T,include.lag=T,include.neruop
   
 }
 
-
-
 shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   dfx$Trial<-dfx$trial
   if(comboRLpara && !is.null(RLparadf)){
@@ -451,6 +444,27 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
                sublevel=sublvldfx,triallvl=dfx
                )
   return(output)
+}
+
+shark_sim_stan_prep<-function(df){
+  sp <- split(df,df$uID)
+  nS <- length(sp)
+  nT <- max(sapply(sp,nrow))
+  
+  shark_stan<-list(
+    nS=nS,nT=nT,
+    choice=array(0,dim=c(nS,nT,2)),
+    state_2=array(0,dim=c(nS,nT)),
+    reward=array(0,dim=c(nS,nT))
+  )
+  
+  for (s in 1:nS) {
+    shark_stan$choice[s,,1]<-sp[[s]]$s1_choice -1
+    shark_stan$choice[s,,2]<-sp[[s]]$s2_choice -1
+    shark_stan$state_2[s,]<-sp[[s]]$s2_state-1
+    shark_stan$reward[s,]<-sp[[s]]$reward
+  }
+  return(shark_stan)
 }
 
 shark_stan_prep<-function(shark_split=NULL,grpchoice="all"){
@@ -615,7 +629,6 @@ shark_get_log_lik<-function(extracted_fit=NULL){
   })
   return(all_sub)
 }
-
 
 shark_initfun <- function() {
   list(

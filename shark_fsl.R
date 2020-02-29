@@ -1,48 +1,50 @@
-#Shark fsl
-rootdir = '~/Box/skinner/data/eprime/shark' 
+#Shark FSL Script
+#Model Selection
+QC     = TRUE
+basic  = FALSE
+pe_daw = FALSE
+
+#Script Wide Arguments:
+runHConly<-F
+getRLpara<-F
+run_step=c(1,2,6)
+lvl3_covariate_names = c("Intercept")
+excludeID<-c("221680","221036","221036_WRONG")
 
 require("devtools")
 devtools::install_github("PennStateDEPENdLab/dependlab",force=F)
 devtools::install_github("DecisionNeurosciencePsychopathology/fMRI_R",force = F)
 library("fslpipe")
 require("dplyr")
-#Script Wide Arguments:
-reloaddata<-F
-runGroupComparison<-T
-runHConly<-F
-excludeID<-c("221680","221036","221036_WRONG")
 
-parallenum=parallel::detectCores()/2
-source('shark_utility.R')
-
-if(reloaddata){
-  source('behaviroal/shark_beh_analyses_import_process.R')
-} else {load("shark1.RData")}
-
-argu<-as.environment(list(nprocess=4,onlyrun=NULL,forcereg=F,cfgpath="/Volumes/bek/autopreprocessing_pipeline/Explore/shark.cfg",
-                          regpath="/Volumes/bek/explore/shark/regs",func.nii.name="nfswudktm*[0-9]_[0-9].nii.gz",
-                          proc_id_subs="",regtype=".1D", convlv_nuisa=FALSE,adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,randomize_demean=FALSE,
-                          gsub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_gfeat_general_adaptive_template.fsf",
-                          ssub_outputroot="/Volumes/bek/explore/shark/ssanalysis",whichttest=c("onesample"),
-                          glvl_outputroot="/Volumes/bek/explore/shark/grpanal",centerscaleall=F,
-                          templatedir="/Volumes/bek/Newtemplate_may18/fsl_mni152/MNI152_T1_2mm_brain.nii",
-                          ssub_fsl_templatepath="/Volumes/bek/neurofeedback/scripts/fsl/templates/fsl_ssfeat_general_adaptive_template_R.fsf",
-                          glvl_output="/Volumes/bek/explore/shark/grpanal",ifoverwrite_secondlvl=FALSE,hig_lvl_path_filter=NULL,
-                          graphic.threshold=0.90,nuisa_motion="nuisance",motion_type="fd", motion_threshold="default",convlv_nuisa=F))
+argu<-as.environment(list(nprocess=12,run_steps=run_step,forcereg=F,
+                          cfgpath="/gpfs/group/mnh5174/default/lab_resources/fmri_processing_scripts/autopreproc/cfg_files/exolore/Pitt_explore_shark_aroma_mni7mm.cfg",
+                          rootpath_output = "/gpfs/group/LiberalArts/default/mnh5174_collab/explore/shark",
+                          name_func_nii="nfaswuktm_shark[0-9]*.nii.gz",
+                          regtype=".1D", adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,centerscaleall=FALSE,
+                          templatedir="/gpfs/group/mnh5174/default/lab_resources/standard/mni_icbm152_nlin_asym_09c/mni_icbm152_t1_tal_nlin_asym_09c_brain_3mm.nii",
+                          graphic.threshold=0.95,nuisa_motion=c("nuisance","motion_par"),motion_type="fd", motion_threshold="default",convlv_nuisa=F
+))
 #DO NOT PROVIDE THOSE TWO AND IT WILL BE FINE;
-argu$randomize_p_threshold<-0.001
-argu$randomize_thresholdingways<-c("tfce","voxel-based","cluster-based-extent","cluster-based-mass")
-argu$ss_zthreshold<-3.2  #This controls the single subject z threshold (if enabled in template)
+#We are refiting lvl2
+argu$lvl2_overwrite<-F
+argu$lvl3_overwrite<-F
+argu$lvl1_retry<-T
+argu$lvl3_afnify <- T
+argu$lvl1_afnify <- T
+argu$lvl3_type<-"flame"
+argu$ss_zthreshold<-1.96  #This controls the single subject z threshold (if enabled in template)
 argu$ss_pthreshold<-0.05 #This controls the single subject p threshold (if enabled in template)
-getRLpara=F
 
+#PBS argu
+argu$run_on_pbs<-T
 
-
-
-#Model Selection
-base_model=F
-pe_daw=T
 #Model Basic Event Mapping;
+if (QC) {
+  argu$model_name <- "QC"
+  argu$gridpath <- "./grids/QC.csv"
+}
+
 if(base_model){
   argu$model.name<-"BasicModel"
   argu$gridpath<-"./grids/basic.csv"
@@ -56,13 +58,15 @@ if(pe_daw){
   getRLpara<-T
 }
 
+laod("shark_data.RData")
 if(getRLpara){
   if(file.exists("shark_rl_df.rdata")){
-  load("shark_rl_df.rdata")
+    load("shark_rl_df.rdata")
   }else {
     stop("Please make sure RL output df is saved in the directory.")
   }
 }
+
 
 shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
   if(getRLpara) {
@@ -76,67 +80,10 @@ shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
 names(shark_fsl_data)<-as.character(unique(bdf$ID))
 shark_fsl_data<-cleanuplist(shark_fsl_data)
 shark_fsl_data<-shark_fsl_data[-which(names(shark_fsl_data) %in% excludeID)]
+
 if(runHConly) {
 shark_fsl_data<-shark_fsl_data[sapply(shark_fsl_data,function(kr){unique(kr$dfx$Group)==1})]
 }
-
-
-cliniHC<-F
-attHC<-F
-IDEatt<-F
-attDEP<-T
-if(runGroupComparison){
-  refdf<-unique(bdf[c("ID","Group")])
-  names(refdf)<-c("ID","grp")
-  refdf<-refdf[!refdf$ID %in% excludeID,]
-  
-  if(cliniHC){
-  #Clinical against controls:
-  refdf$grp<-as.numeric(as.numeric(as.character(refdf$grp))>1)+1
-  refdf$grp[refdf$grp==1]<-"HC"
-  refdf$grp[refdf$grp==2]<-"CLINICAL"
-  }
-  if(attHC){
-    refdf<-refdf[refdf$grp %in% c(1,5),]
-    refdf$grp<-as.character(refdf$grp)
-    refdf$grp[refdf$grp==1]<-"HC"
-    refdf$grp[refdf$grp==5]<-"ATT"
-  }
-  if(IDEatt){
-    refdf<-refdf[refdf$grp %in% c(4,5),]
-    refdf$grp<-as.character(refdf$grp)
-    refdf$grp[refdf$grp==4]<-"IDE"
-    refdf$grp[refdf$grp==5]<-"ATT"
-  }
-  if(attDEP){
-    refdf<-refdf[refdf$grp %in% c(2,5),]
-    refdf$grp<-as.character(refdf$grp)
-    refdf$grp[refdf$grp=='2']<-"DEP"
-    refdf$grp[refdf$grp=='5']<-"ATT"
-  }
-  # allIDs<-list.dirs(path = file.path(argu$ssub_outputroot,argu$model.name),recursive = F,full.names = F)
-  # allIDs<-allIDs[!allIDs %in% c("221036_WRONG","221036")]
-  # bdf$Group<-as.character(bdf$Group)
-  # 
-  # 
-  # #Fix it before going in;
-  #refdf<-data.frame(ID=allIDs,grp=bdf$Group[match(allIDs,bdf$ID)],stringsAsFactors = F)
-  # refdf$grp[refdf$grp!=1]<-"DEP"
-  # refdf$grp[refdf$grp==1]<-"HC"
-  #allbpd against controls:
-  
-  argu$supplyidmap<-lapply(split(refdf,refdf$grp),function(rx){
-    list(ID=rx$ID,name=unique(rx$grp))
-  })
-  
-  argu$whichttest<-c("unpaired")
-  argu$group_id_sep<-unique(refdf$grp)
-  print(sapply(argu$supplyidmap,function(x){length(x$ID)}))
-  
-  #We can now call argu to do it again; 
-  #argu$onlyrun<-5:6
-}
-
 
 
 fsl_pipe(
