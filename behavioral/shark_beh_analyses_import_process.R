@@ -70,8 +70,9 @@ message("Number of subject before clean up: ",length(shark_data_proc))
 shark_behav_qc_mo<-behav_qc_general(datalist=shark_data_proc,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),resp_var="keycode1",resp_toget="1",rt_var="rts1")
 shark_behav_qc_ch<-behav_qc_general(datalist=shark_data_proc,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),resp_var="choice1",resp_toget="1",rt_var="rts1")
 
-excludeIDs<-unique(c(shark_behav_qc_mo$ID[which(shark_behav_qc_mo$max_rep > 0.3)], shark_behav_qc_ch$ID[which(shark_behav_qc_ch$max_rep >= 0.9)]))
-shark_data_proc_exclude<-shark_data_proc_exclude[which(!names(shark_data_proc) %in% excludeIDs)]
+#excludeIDs<-unique(c(shark_behav_qc_mo$ID[which(shark_behav_qc_mo$max_rep > 0.3)], shark_behav_qc_ch$ID[which(shark_behav_qc_ch$max_rep >= 0.9)]))
+excludeIDs <- c()
+shark_data_proc_exclude<-shark_data_proc[which(!names(shark_data_proc) %in% excludeIDs)]
 message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
 
 

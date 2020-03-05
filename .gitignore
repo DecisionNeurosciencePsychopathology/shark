@@ -13,3 +13,6 @@ behavioral/WTAR.xlsx
 scheck/*
 stan_scripts/stan_output/*
 *.rds
+*.rdata
+*.mat
+shark_data.RData

@@ -1,24 +1,23 @@
 #Shark FSL Script
 #Model Selection
 QC     = TRUE
-basic  = FALSE
-pe_daw = FALSE
+Basic_Model  = FALSE
+PE_daw = FALSE
 
 #Script Wide Arguments:
 runHConly<-F
 getRLpara<-F
 run_step=c(1,2,6)
 lvl3_covariate_names = c("Intercept")
-excludeID<-c("221680","221036","221036_WRONG")
 
 require("devtools")
 devtools::install_github("PennStateDEPENdLab/dependlab",force=F)
 devtools::install_github("DecisionNeurosciencePsychopathology/fMRI_R",force = F)
 library("fslpipe")
 require("dplyr")
-
+source("shark_utility.R")
 argu<-as.environment(list(nprocess=12,run_steps=run_step,forcereg=F,
-                          cfgpath="/gpfs/group/mnh5174/default/lab_resources/fmri_processing_scripts/autopreproc/cfg_files/exolore/Pitt_explore_shark_aroma_mni7mm.cfg",
+                          cfgpath="/gpfs/group/mnh5174/default/lab_resources/fmri_processing_scripts/autopreproc/cfg_files/explore/Pitt_explore_shark_aroma_mni7mm.cfg",
                           rootpath_output = "/gpfs/group/LiberalArts/default/mnh5174_collab/explore/shark",
                           name_func_nii="nfaswuktm_shark[0-9]*.nii.gz",
                           regtype=".1D", adaptive_gfeat=TRUE,adaptive_ssfeat=TRUE,centerscaleall=FALSE,
@@ -45,20 +44,20 @@ if (QC) {
   argu$gridpath <- "./grids/QC.csv"
 }
 
-if(base_model){
+if(Basic_Model){
   argu$model.name<-"BasicModel"
   argu$gridpath<-"./grids/basic.csv"
   #argu$model.varinames<-c("LeftRight1","Decision1_evt","Decision2_evt","Feedback_evt")
 } 
 
-if(pe_daw){
+if(PE_daw){
   argu$model.name<-"PE_MB"
   argu$gridpath<-"./grids/PE_MB.csv"
   argu$centerscaleall<-T
   getRLpara<-T
 }
 
-laod("shark_data.RData")
+load("shark_data.RData")
 if(getRLpara){
   if(file.exists("shark_rl_df.rdata")){
     load("shark_rl_df.rdata")
@@ -79,7 +78,7 @@ shark_fsl_data<-lapply(as.character(unique(bdf$ID)),function(ID){
 })
 names(shark_fsl_data)<-as.character(unique(bdf$ID))
 shark_fsl_data<-cleanuplist(shark_fsl_data)
-shark_fsl_data<-shark_fsl_data[-which(names(shark_fsl_data) %in% excludeID)]
+#shark_fsl_data<-shark_fsl_data[-which(names(shark_fsl_data) %in% excludeID)]
 
 if(runHConly) {
 shark_fsl_data<-shark_fsl_data[sapply(shark_fsl_data,function(kr){unique(kr$dfx$Group)==1})]
