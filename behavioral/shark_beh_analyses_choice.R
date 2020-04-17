@@ -21,7 +21,7 @@ library(emmeans)
 
 ###################
 
-load(file = "shark1.RData") 
+load(file = "shark_data.RData") 
 
 #Model task not working: #Let's hope that this is not:
 
@@ -38,35 +38,54 @@ summary(m0null)
 
 
 
-# #Let's try total model free, 4 arm bandit;
-# m1_free <- glmer(choice1_lead  ~ 
-#                      SameKey1_lead +  DecRecode*ifRare * ifReinf * ifSharkBlock  +  
-#                (1| ID/Run),
-#              family = binomial(),
-#              data = bdf[!bdf$Outlier,],
-#              glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-# summary(m1_free)
-# car::Anova(m1_free, type = 'III')
-
-ggplot()
-
 # write factors for reward and transition with deviation coding
 bdf$rewardD <- bdf$RewardType
 contrasts(bdf$rewardD) = contr.sum(2)
 bdf$transitionD <- bdf$Transition
 contrasts(bdf$transitionD) = contr.sum(2)
 
+shark_basic <- lme4::glmer(Stay1_lead ~ Stay1 + SameKey1_lead + 
+                          Transition * RewardType  + 
+                          (1 | ID),
+                        family = binomial(),
+                        data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack) ),],
+                        lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(shark_basic)
+car::Anova(shark_basic, type = 'III')
+sjPlot::plot_model(shark_basic,type = "pred",terms=c("Transition","RewardType"))
+
+shark_basic_hc <- lme4::glmer(Stay1_lead ~ Stay1 + Transition*RewardType*SameKey1_lead + 
+                          Transition * RewardType * BlockType + 
+                          (1 | ID),
+                        family = binomial(),
+                        data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GroupNEW == "HC"),],
+                        lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+summary(shark_basic_hc)
+car::Anova(shark_basic_hc, type = 'III')
+sjPlot::plot_model(shark_basic_hc,type = "pred",terms=c("RewardType","SameKey1_lead"))
+
+
+shark_basic_hc <- lme4::glmer(as.factor(keycode1_lead) ~ 
+                                Transition * RewardType * as.factor(keycode1) *rocketLRswitch +
+                               # Transition * RewardType * rocketLRswitch + 
+                                (1 | ID),
+                              family = binomial(),
+                              data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GroupNEW == "HC"),],
+                              lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 
 #Star Model Currently:
 
-shark_gm <- lme4::glmer(Stay1_lead ~ Stay1  + SameKey1_lead + Transition * RewardType * BlockType * Group+ 
-                 (Transition * RewardType| ID),
+shark_basic_group <- lme4::glmer(Stay1_lead ~ Stay1  + SameKey1_lead + 
+                        Transition * RewardType * GroupNEW + 
+                        Transition * RewardType * BlockType + 
+                 (1 | ID),
                  family = binomial(),
                  data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
                  lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(shark_gm)
-car::Anova(shark_gm, type = 'III')
-car::vif(shark_gm)
+summary(shark_basic_group)
+car::Anova(shark_basic_group, type = 'III')
+car::vif(shark_basic_group)
+sjPlot::plot_model(shark_basic_group,type = "pred",terms=c("Transition","RewardType","GroupNEW"))
 
 shark_valenceRPE<-lme4::glmer(choice2 ~ choice2_lag + state * Transition + (Transition * RewardType | ID), family = binominal(), data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
 	lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
@@ -119,14 +138,16 @@ high_mb_hc<-rownames(shark_coef_hc)[which(shark_coef_hc$`RewardTypeNo Reward:Tra
 
 #RT Models:
 rtshark1<-lmerTest::lmer(rts1_lead ~ rts1_scale + Stay1 + SameKey1_lead + 
-                       # Transition * RewardType * GROUP1245 +
-                       # Transition * RewardType * BlockType +
-                       # Transition * GROUP1245 * BlockType +
-                       # RewardType * GROUP1245 * BlockType +
-                       Transition * RewardType * BlockType *Group +   #Use for 4 ways
-                       (1 | ID),REML = T,
-                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) ),]
-                     )
+                        Transition * GroupNEW +
+                       (1 | ID), REML = T,
+                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) ),])
+
+rtshark1_hc<-lmerTest::lmer(1/rts1_scale_lead ~ rts1_scale + Stay1 + SameKey1_lead + 
+                           Transition + RewardType +
+                           (1 | ID),REML = T,
+                         data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GroupNEW=="HC" ),])
+summary(rtshark1_hc)
+
 
 grx<-ggpredict(rtshark1,terms = c("Transition","RewardType","Group"),x.as.factor = T,type="fe")
 ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
@@ -152,7 +173,7 @@ ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
 
 summary(rtshark1)   
 car::Anova(rtshark1, type = 'III')
-sjPlot::plot_model(rtshark1,type = "pred",terms=c("RewardType","Transition"))
+sjPlot::plot_model(rtshark1_hc,type = "pred",terms=c("RewardType","Transition"))
 sjPlot::plot_model(rtshark1,type = "pred",terms=c("Transition","BlockType"))
 sjPlot::plot_model(rtshark1,type = "pred",terms=c("Transition","Group"))
 sjPlot::plot_model(rtshark1,type = "pred",terms=c("BlockType","RewardType","Transition"))
@@ -182,13 +203,13 @@ rtshark2<-lmerTest::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + Stay1 + Sam
                        # Transition * RewardType * BlockType +
                        # Transition * GROUP1245 * BlockType +
                        # RewardType * GROUP1245 * BlockType +
-                       (Transition + RewardType + BlockType + Group)^3 +   #Use for 4 ways
+                       (Transition + RewardType + BlockType + GroupNEW)^3 +   #Use for 4 ways
                        (1 | ID),REML = F,
                      data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
 
 anova(rtshark1,rtshark2, type = 'III')
 
-summary(rtshark1)     
+summary(rtshark2)     
 
 car::Anova(rtshark1, type = 'III')
 coefs <- data.frame(coef(summary(rtshark1)))

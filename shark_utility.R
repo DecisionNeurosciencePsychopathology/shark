@@ -385,6 +385,8 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   dfx$SharkRR<-dfx$RareReinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
   dfx$SharkRR_lag<-dfx$RareReinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
   
+  
+  
   dfx_sp<-split(dfx,dfx$Block)
   shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
     sbj<-data.frame(onset=spx$stim1.ons.ms[1]/1000,
