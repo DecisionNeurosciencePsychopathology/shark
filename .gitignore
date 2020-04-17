@@ -16,7 +16,4 @@ stan_scripts/stan_output/*
 *.rds
 *.rdata
 *.Rdata
-*.docx
-*.pdf
-*.mat
 shark_data.RData
