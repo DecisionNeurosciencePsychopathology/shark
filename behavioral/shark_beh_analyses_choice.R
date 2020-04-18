@@ -87,7 +87,8 @@ car::Anova(shark_basic_group, type = 'III')
 car::vif(shark_basic_group)
 sjPlot::plot_model(shark_basic_group,type = "pred",terms=c("Transition","RewardType","GroupNEW"))
 
-shark_valenceRPE<-lme4::glmer(choice2 ~ choice2_lag + state * Transition + (Transition * RewardType | ID), family = binominal(), data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
+shark_valenceRPE<-lme4::glmer(choice2 ~ choice2_lag + state * Transition + (Transition * RewardType | ID), 
+                              family = binominal(), data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],
 	lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
 summary(shark_valenceRPE)
 car::Anova(shark_valenceRPE,type='III')
@@ -98,18 +99,21 @@ grx<-ggpredict(shark_gm,terms = c("Transition","RewardType"),x.as.factor = T,typ
 
 ggplot(grx,aes(x,predicted,fill=group))+geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
   ymin = conf.low, 
-  ymax = conf.high),stat = "identity",position = position_dodge(.9),width=0.1)+ scale_fill_manual(values=c("indianred3", "steelblue3"))
+  ymax = conf.high),stat = "identity",position = position_dodge(.9),width=0.1)+ 
+  scale_fill_manual(values=c("indianred3", "steelblue3"))
 
 
 
 
 
 
-a<-sjPlot::plot_model(shark_gm,type = "pred",terms = c("RewardType","Transition","BlockType"),se = T,show.values = T,pred.type = "fe")
+a<-sjPlot::plot_model(shark_gm,type = "pred",terms = c("RewardType","Transition","BlockType"),
+                      se = T,show.values = T,pred.type = "fe")
 
 ggsave(a,device = "pdf",filename = "choice_glmer.pdf",width = 6,height = 6)
 
-emmeansx<-emmeans(shark_gm,specs= ~ RewardType*Transition*BlockType|Group,data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
+emmeansx<-emmeans(shark_gm,specs= ~ RewardType*Transition*BlockType|Group,
+                  data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=prob, fill=Transition)) + 
   geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
@@ -155,7 +159,8 @@ ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
   upper = predicted + std.error, 
   middle = predicted, 
   ymin = conf.low, 
-  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
+  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + 
+  facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
 
 grx<-ggpredict(rtshark1,terms = c("Transition","RewardType","BlockType"),x.as.factor = T,type="fe")
 ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
@@ -163,7 +168,8 @@ ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
   upper = predicted + std.error, 
   middle = predicted, 
   ymin = conf.low, 
-  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
+  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + 
+  facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
 
 
 
@@ -185,7 +191,8 @@ ggplot(bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),], aes(y 
   scale_x_continuous(expand = c(0, 0)) 
 
 library(emmeans)
-emmeansx<-emmeans(rtshark1,specs= ~ RewardType*Transition*BlockType|depress,data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
+emmeansx<-emmeans(rtshark1,specs= ~ RewardType*Transition*BlockType|depress,
+                  data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
   geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
@@ -237,7 +244,8 @@ coefs
 
 
 
-ggplot(data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],aes(y = rts1_lead,x=RewardType,color=Transition))+geom_boxplot()+facet_wrap(~Group+BlockType,ncol = 2)
+ggplot(data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
+       aes(y = rts1_lead,x=RewardType,color=Transition))+geom_boxplot()+facet_wrap(~Group+BlockType,ncol = 2)
 
 
 # multicollinearity diagnostics
@@ -247,7 +255,8 @@ ggplot(data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
 bdf$RewardType<-plyr::mapvalues(bdf$ifReinf,from = c("TRUE","FALSE"),to = c("Reward","No Reward"))
 #Plots
 library(emmeans)
-emmeansx<-emmeans(m1shark,  ~ RewardType*Transition*BlockType |GROUP1245,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
+emmeansx<-emmeans(m1shark,  ~ RewardType*Transition*BlockType |GROUP1245,
+                  data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
   geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
@@ -258,7 +267,8 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) +
     ymax = emmean + SE),
     stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~GROUP1245+BlockType,ncol = 2)
 
-emmeansx<-emmeans(m1shark_hc,  ~RewardType*Transition | BlockType,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+emmeansx<-emmeans(m1shark_hc,  ~RewardType*Transition | BlockType,
+                  data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
   geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
@@ -269,7 +279,8 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) +
   ymax = emmean + SE),
   stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~BlockType,ncol = 2)
 
-emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
+emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,
+                  data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 
@@ -288,7 +299,8 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=rts1_lead, color=Transition)) + geom_
   stat = "identity") + facet_wrap(~GROUP1245+BlockType,ncol = 2)
 
 
-emmeansx_rt<-emmeans(rtshark1_hc,  ~RewardType*Transition | BlockType ,data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
+emmeansx_rt<-emmeans(rtshark1_hc,  ~RewardType*Transition | BlockType ,
+                     data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),])
 dfemmeans<-as.data.frame(emmeansx_rt)
 ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 
@@ -304,8 +316,10 @@ shark_mulT<-lapply(shark_sp,shark_prep_mulT,tlag=tlag)
 shark_mulT_df<-do.call(rbind,shark_mulT)
 addonto<-unlist(lapply(1:tlag-1,function(x){paste(levels(shark_mulT_df$uCond),x,sep="_")}))
 
-model_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),"+ (",1," | ID)",sep = "") )
-model_sub_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),"+ (",paste(addonto,collapse = " + ")," | ID)",sep = "") )
+model_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),
+                                 "+ (",1," | ID)",sep = "") )
+model_sub_formula<-as.formula( paste("ChoiceS1_lead ~ ",paste(addonto,collapse = " + "),
+                                     "+ (",paste(addonto,collapse = " + ")," | ID)",sep = "") )
 
 # 
 # shark_gm_mulT<-lmer(model_formula,REML=T,
