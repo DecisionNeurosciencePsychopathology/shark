@@ -19,6 +19,11 @@ ProcApply<-function(listx=NULL,FUNC=NULL,...,addNAtoNull=T) {
               df=do.call(rbind,proc_ls)))
 }
 
+getFuncArgs <- function(function_name=NULL){
+  gx <- args(name = function_name)
+  return(as.list(gx))
+}
+
 cleanuplist<-function(listx){
   if (any(sapply(listx, is.null))){
     listx[sapply(listx, is.null)] <- NULL}
@@ -136,61 +141,81 @@ vif.lme <- function (fit) {
   v <- diag(solve(v/(d %o% d)))
   names(v) <- nam
   v }
-
-shark_proc<-function(dfx) {
-  #dfx$ID <-dfx$ID
+#shark_data$`210100`->dfx
+shark_proc<-function(dfx,rt_range=c(0.2,4)) {
+  if(nrow(dfx)!=100) {message("Subject: ",unique(dfx$ID)," has ",nrow(dfx)," trials instead of 100; some calculations might be off.")}
   
+  #Remove output for missing choice and etc
   dfx$keycode1[dfx$keycode1==0]<-NA
   dfx$keycode2[dfx$keycode2==0]<-NA
   dfx$choice1[dfx$choice1==0]<-NA
   dfx$choice2[dfx$choice2==0]<-NA
+  dfx$rts1[dfx$rts1==0] <- NA
+  dfx$rts2[dfx$rts2==0] <- NA
+  dfx$state[dfx$state==0]<-NA
   
-  dfx$rocketLRswitch<- !dfx$keycode1 == dfx$choice1 #if rocket switched sides
-  dfx$ChoiceKey<- paste(dfx$keycode1,dfx$keycode2,sep = "&")
-  dfx$ChoiceKey[is.na(dfx$keycode1) | is.na(dfx$keycode2)]<-NA
   
   
-  dfx$DecRecode<-NA
-  dfx$DecRecode[dfx$state==2 & dfx$choice2==1]<-"P2L"
-  dfx$DecRecode[dfx$state==2 & dfx$choice2==2]<-"P2R"
-  dfx$DecRecode[dfx$state==3 & dfx$choice2==1]<-"P3L"
-  dfx$DecRecode[dfx$state==3 & dfx$choice2==2]<-"P3R"
+  dfx$Block = ceiling(dfx$trial/25)
+  dfx$Run = ceiling(dfx$trial/50)
   
-  dfx$ChoiceFree<- paste(dfx$choice1,dfx$DecRecode,sep = "&")
-  dfx$ChoiceFree[is.na(dfx$choice1) | is.na(dfx$DecRecode)]<-NA
+  dfx$MissedS1 <- is.na(dfx$rts1) 
+  dfx$MissedS2 <- is.na(dfx$rts2)
+  dfx$Missed <- dfx$MissedS1 | dfx$MissedS2
   
-  dfx$ifRare <- (dfx$choice1+2)/dfx$choice1 == dfx$state #common FLASE; rare TRUE
-  dfx$ifRare[is.na(dfx$choice1) | is.na(dfx$choice2)]<-NA
-  dfx$Transition<-plyr::mapvalues(dfx$ifRare,from = c("TRUE","FALSE"),to = c("Rare","Common"))
-  dfx$ifSwitched1 <- getifswitched(dfx$choice1)
-  dfx$ifSwitched2 <- getifswitched(dfx$choice2)
-  dfx$ifSwitchedKey<- getifswitched(dfx$ChoiceKey)
-  dfx$ifSwitchedFree<-getifswitched(dfx$ChoiceFree)
-  dfx$ifReinf <- as.factor(as.logical(dfx$won))
-  dfx$ifReinf<-factor(dfx$ifReinf,levels=c("TRUE","FALSE"))
-  dfx$RewardType<-plyr::mapvalues(dfx$ifReinf,from = c("TRUE","FALSE"),to = c("Reward","No Reward"))
+  dfx$OutlierS1 <- dfx$rts1 < rt_range[1] |  dfx$rts1 > rt_range[2]
+  dfx$OutlierS2 <- dfx$rts2 < rt_range[1] |  dfx$rts2 > rt_range[2]
+  dfx$Outlier <- dfx$OutlierS1 | dfx$OutlierS2
+  
+  dfx$RocketSwitch<- ifelse(as.logical(dfx$swap.hist),"Switch","Same") #if rocket switched sides
+  
+  
+  dfx$KeySequence<- paste(dfx$keycode1,dfx$keycode2,sep = "&")
+  dfx$KeySequence[dfx$Missed]<-NA
+  
+  dfx$won[dfx$Missed] <- NA
+  
+  # dfx$DecRecode<-NA
+  # dfx$DecRecode[dfx$state==2 & dfx$choice2==1]<-"P2L"
+  # dfx$DecRecode[dfx$state==2 & dfx$choice2==2]<-"P2R"
+  # dfx$DecRecode[dfx$state==3 & dfx$choice2==1]<-"P3L"
+  # dfx$DecRecode[dfx$state==3 & dfx$choice2==2]<-"P3R"
+  
+  dfx$ChoiceSequence<- paste(dfx$choice1,dfx$choice2,sep = "&")
+  dfx$ChoiceSequence[dfx$Missed]<-NA
+  
+  #Rewrite this so that it is clear for later
+  dfx$Transition <- NA
+  dfx$Transition[dfx$choice1==1 & dfx$state==2] <- "Common"
+  dfx$Transition[dfx$choice1==2 & dfx$state==3] <- "Common"
+  
+  dfx$Transition[dfx$choice1==1 & dfx$state==3] <- "Rare"
+  dfx$Transition[dfx$choice1==2 & dfx$state==2] <- "Rare"
+  
+  
+  dfx$RewardType <- ifelse(as.logical(dfx$won),"Reward","Omission")
   dfx$ifSharkBlock <- (dfx$contingency==1 & (dfx$trial %in% c(1:25,51:75))) | (dfx$contingency==2 & (dfx$trial %in% c(26:50,76:100))) 
   dfx$BlockType<-plyr::mapvalues(dfx$ifSharkBlock,from = c("TRUE","FALSE"),to = c("Shark","Baseline"))
+  
+  #Set baselines for each regressors: 
+  dfx$RewardType <- factor(dfx$RewardType,levels = c("Omission","Reward"))
+  dfx$Transition <- factor(dfx$Transition,levels = c("Common","Rare"))
+  dfx$BlockType  <- factor(dfx$BlockType,levels = c("Baseline","Shark"))
+  
   #To ensure sequential order before lag and lead
   dfx<-dfx[with(dfx,order(ID,trial)),]
   
-  dfx$rts1_scale<-scale(dfx$rts1,center = T,scale = F)
-  dfx$rts2_scale<-scale(dfx$rts2,center = T,scale = F)
+  dfx$rts1_scale<-as.numeric(scale(dfx$rts1))
+  dfx$rts2_scale<-as.numeric(scale(dfx$rts2))
   
   for (ix in c("choice1","BlockType","Transition",
                "choice2",
                "keycode1",
                "keycode2",
-               "ifReinf",
+               "RewardType",
                "state",
                "rts1","rts1_scale",
-               "rts2","rts2_scale",
-               "ifRare",
-               "ChoiceFree",
-               "ifSwitchedFree",
-               "ifSwitchedKey",
-               "ChoiceKey",
-               "DecRecode"
+               "rts2","rts2_scale"
   )) {
     d<-dfx[,ix]
     dfx[paste0(ix,"_lag")]<-lag(d)
@@ -211,47 +236,54 @@ shark_proc<-function(dfx) {
   dfx$SameKey1_lead <- as.factor(dfx$keycode1 == dfx$keycode1_lead)
   dfx$SameKey2_lead <- as.factor(dfx$keycode2 == dfx$keycode2_lead)
   dfx$SameState <- as.factor(dfx$state == dfx$state_lag)
-  dfx$SameState_lead <- as.factor(dfx$state == dfx$state_lead)
+  dfx$SameState_lead <- as.factor(dfx$state_lead == dfx$state)
   
-
-  
-  meh<-lapply(dfx,class)
-  meh$trial<-NULL
-  meh$ID<-NULL
-  for (ik in names(meh)) {
-    if (meh[[ik]] %in% c("logical","integer","character")) {
-      dfx[,ik]<-as.factor(dfx[,ik])
-    }
-  }
-  dfx$Block = ceiling(dfx$trial/25)
-  dfx$Run = ceiling(dfx$trial/50)
-  dfx$Missed <- dfx$rts1==0 | dfx$rts2==0
-  dfx$Outlier <- dfx$rts1<.2 | dfx$rts2<.2 | dfx$rts1 > 4 | dfx$rts2 > 4
   return(dfx)
 }
 
-shark_exclusion<-function(dfx=NULL, missthres=NA,comreinfstaythres=NA,P_staycomreinfchance=NA,returnstats=F) {
-  p_miss<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1))
-  if(!is.na(missthres)){
-  p_miss_if<- p_miss < missthres
-  } else {p_miss_if<-TRUE;}
+shark_summarize<-function(dfx=NULL,useable_vars=c("Missed","Outlier")) {
   
-  z<-genPercentage(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
-  p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
-  if(!is.na(comreinfstaythres)){
-    if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
-  } else {if_com_reinf_stay<-TRUE;}
-
-  p_com_reinf_stay_chance<-pbinom(length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf) & as.logical(dfx$Stay1))), 
-                                  length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))), 0.5)
- if(!is.na(P_staycomreinfchance)){
-   #Get chance p of stay given common reinf, 
-   if_chance_comreinfstay <- p_com_reinf_stay_chance > P_staycomreinfchance
- }else{if_chance_comreinfstay<-TRUE;}
-
-  if(returnstats){data.frame(p_miss=p_miss,p_comreinfstay=p_com_reinf_stay,p_chancecomreinfstay=p_com_reinf_stay_chance)}else{
-  if (p_miss_if && if_com_reinf_stay && if_chance_comreinfstay) {return(dfx)} else {return(NULL)}
-  }
+  dfx$not_useable <- apply(dfx[useable_vars],1,any)
+  
+  df_o_miss<-data.frame(Type = "Overall",
+                        not_useable   = length(which(dfx$not_useable)) / nrow(dfx))
+  
+  df_blcok_miss <- aggregate(not_useable~Block,data = dfx,FUN = function(x){length(which(x)) / length(x)})
+  df_blcok_miss$Type <- paste(colnames(df_blcok_miss)[1],df_blcok_miss$Block)
+  df_blcok_miss$Block <- NULL
+  
+  df_shark_miss <- aggregate(not_useable~BlockType,data = dfx,FUN = function(x){length(which(x)) / length(x)})
+  colnames(df_shark_miss)[1] <- "Type"
+  
+  df_run_miss <- aggregate(not_useable~Run,data = dfx,FUN = function(x){length(which(x)) / length(x)})
+  df_run_miss$Type <- paste(colnames(df_run_miss)[1],df_run_miss$Run)
+  df_run_miss$Run <- NULL
+  
+  df_miss <- rbind(df_o_miss,df_blcok_miss,df_run_miss,df_shark_miss)
+  df_miss$ID <- unique(dfx$ID)
+  #  
+  #  p_miss<-(length(which(is.na(dfx$choice1))) / length(dfx$choice1))
+  #  if(!is.na(missthres)){
+  #  p_miss_if<- p_miss < missthres
+  #  } else {p_miss_if<-TRUE;}
+  #  
+  #  z<-genPercentage(dfx,condition=c('ifReinf','ifRare'),response=c("ifSwitched1"))
+  #  p_com_reinf_stay<-z$p[z$ifRare=="Not_Rare" & z$ifReinf=="Reinf" & z$resp=="FALSE"]
+  #  if(!is.na(comreinfstaythres)){
+  #    if_com_reinf_stay <- p_com_reinf_stay > comreinfstaythres
+  #  } else {if_com_reinf_stay<-TRUE;}
+  # 
+  #  p_com_reinf_stay_chance<-pbinom(length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf) & as.logical(dfx$Stay1))), 
+  #                                  length(which(!as.logical(dfx$ifRare) & as.logical(dfx$ifReinf))), 0.5)
+  # if(!is.na(P_staycomreinfchance)){
+  #   #Get chance p of stay given common reinf, 
+  #   if_chance_comreinfstay <- p_com_reinf_stay_chance > P_staycomreinfchance
+  # }else{if_chance_comreinfstay<-TRUE;}
+  # 
+  #  if(returnstats){data.frame(p_miss=p_miss,p_comreinfstay=p_com_reinf_stay,p_chancecomreinfstay=p_com_reinf_stay_chance)}else{
+  #  if (p_miss_if && if_com_reinf_stay && if_chance_comreinfstay) {return(dfx)} else {return(NULL)}
+  #  }
+  return(df_miss)
 }
 
 getdata<-function(scdate,xdata,limt=365,ignorelimt=F) {
@@ -339,7 +371,10 @@ shark.ml.proc<-function(bdf=NULL,include.clinical=T,include.lag=T,include.neruop
   
 }
 
-shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
+
+
+shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL,design_grid=NULL) {
+  #print(unique(dfx$ID))
   dfx$Trial<-dfx$trial
   if(comboRLpara && !is.null(RLparadf)){
     dfx<-merge(dfx,RLparadf,all.x = T,by = c("ID","Trial"))
@@ -350,101 +385,156 @@ shark_fsl<-function(dfx=NULL,comboRLpara=F,RLparadf=NULL) {
   
   dfx<-dfx[order(dfx$Trial),]
   dfx$Trial<-as.numeric(unlist(lapply(split(dfx$trial,dfx$Run),seq_along)))
-  #Gen QC regressors:
-  dfx$QC_OUT<-sample(1:0,length(dfx$Trial),replace = T)
-  #Motor   #left is 1 and right is 2
-  dfx$LeftRight1<-plyr::mapvalues(dfx$keycode1,from=(1:2),to=c(-1,1))
-  dfx$LeftRight2<-plyr::mapvalues(dfx$keycode2,from=(1:2),to=c(-1,1))
-  #Task Variables:
-  dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,-1))))
-  dfx$SharkBlock_lag<-dplyr::lag(dfx$SharkBlock)
-  dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(1,-1))))
-  dfx$Tran_lag<-dplyr::lag(dfx$Tran)
-  dfx$Reinf<-as.numeric(as.character(plyr::mapvalues(dfx$ifReinf,from=(c("TRUE","FALSE")),to=c(1,-1))))
-  dfx$Reinf_lag<-dplyr::lag(dfx$Reinf)
-  #Regressors:
-  dfx$ModelBase<-dfx$Tran * dfx$Reinf
-  dfx$ModelBase_lag<-dplyr::lag(dfx$ModelBase)
   
-  dfx$ModelBaseShark<-dfx$Tran * dfx$Reinf * dfx$SharkBlock
-  dfx$ModelBase_lagShark<-dfx$ModelBase_lag * dfx$SharkBlock
+  if(is.null(design_grid$shark_stage)) {
+    no_mod = TRUE
+  } else {
+    no_mod = FALSE
+  }
+  # #Gen QC regressors:
+  # dfx$QC_OUT<-sample(1:0,length(dfx$Trial),replace = T)
+  # #Motor   #left is 1 and right is 2
+  # dfx$LeftRight1<-plyr::mapvalues(dfx$keycode1,from=(1:2),to=c(-1,1))
+  # dfx$LeftRight2<-plyr::mapvalues(dfx$keycode2,from=(1:2),to=c(-1,1))
+  # #Task Variables:
+  # dfx$SharkBlock<-as.numeric(as.character(plyr::mapvalues(dfx$ifSharkBlock,from=(c("TRUE","FALSE")),to=c(1,-1))))
+  # dfx$SharkBlock_lag<-dplyr::lag(dfx$SharkBlock)
+  # dfx$Tran<-as.numeric(as.character(plyr::mapvalues(dfx$ifRare,from=(c("TRUE","FALSE")),to=c(1,-1))))
+  # dfx$Tran_lag<-dplyr::lag(dfx$Tran)
+  # dfx$Reinf<-as.numeric(as.character(plyr::mapvalues(dfx$ifReinf,from=(c("TRUE","FALSE")),to=c(1,-1))))
+  # dfx$Reinf_lag<-dplyr::lag(dfx$Reinf)
+  # #Regressors:
+  # dfx$ModelBase<-dfx$Tran * dfx$Reinf
+  # dfx$ModelBase_lag<-dplyr::lag(dfx$ModelBase)
+  # 
+  # dfx$ModelBaseShark<-dfx$Tran * dfx$Reinf * dfx$SharkBlock
+  # dfx$ModelBase_lagShark<-dfx$ModelBase_lag * dfx$SharkBlock
+  # 
+  # dfx$RareNotReinf<-as.numeric(as.logical(dfx$ifRare) & !as.logical(dfx$ifReinf))
+  # dfx$RareNotReinf_lag<-dplyr::lag(dfx$RareNotReinf)
+  # 
+  # dfx$RareReinf<-as.numeric(as.logical(dfx$ifRare)) * as.numeric(as.logical(dfx$ifReinf)) 
+  # dfx$RareReinf_lag<-dplyr::lag(dfx$RareNotReinf)
   
-  dfx$RareNotReinf<-as.numeric(as.logical(dfx$ifRare) & !as.logical(dfx$ifReinf))
-  dfx$RareNotReinf_lag<-dplyr::lag(dfx$RareNotReinf)
+  # #Shark 
+  # dfx$SharkTran<-dfx$Tran * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  # dfx$SharkTran_lag<-dfx$Tran_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  # 
+  # dfx$SharkReinf<-dfx$Reinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  # dfx$SharkReinf_lag<-dfx$Reinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  # 
+  # dfx$SharkRR<-dfx$RareReinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  # dfx$SharkRR_lag<-dfx$RareReinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
   
-  dfx$RareReinf<-as.numeric(as.logical(dfx$ifRare)) * as.numeric(as.logical(dfx$ifReinf)) 
-  dfx$RareReinf_lag<-dplyr::lag(dfx$RareNotReinf)
+  ##Specify New Model Here :
+  dfx$reward_lag <- 0
+  dfx$reward_lag[which(as.character(dfx$RewardType_lag)=="Reward")] <- 1
   
-  #Shark 
-  dfx$SharkTran<-dfx$Tran * as.numeric(as.logical(dfx$ifSharkBlock)) 
-  dfx$SharkTran_lag<-dfx$Tran_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$trax_lag <- 0
+  dfx$trax_lag[which(as.character(dfx$Transition_lag) == "Rare")] <- 1
   
-  dfx$SharkReinf<-dfx$Reinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
-  dfx$SharkReinf_lag<-dfx$Reinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$RocketSwitch_num <- as.numeric(dfx$RocketSwitch == "Switch")
   
-  dfx$SharkRR<-dfx$RareReinf * as.numeric(as.logical(dfx$ifSharkBlock)) 
-  dfx$SharkRR_lag<-dfx$RareReinf_lag * as.numeric(as.logical(dfx$ifSharkBlock)) 
+  dfx$rewXtrax_lag <- dfx$reward_lag * dfx$trax_lag
+  
+  dfx$trax <- 0
+  dfx$trax[which(as.character(dfx$Transition)=="Rare")] <- 1
+  
+  dfx$reward_cur <- 0
+  dfx$reward_cur[which(as.character(dfx$RewardType)=="Reward")] <- 1
+  
+  dfx$rewXtrax <- dfx$trax * dfx$reward_cur
+  
+  
+  timing_s1 <- dfx[c("stim1.ons.ms","stim2.ons.ms","rts1","Run","Trial")]
+  timing_s2 <- dfx[c("stim2.ons.ms","rts2","rew.ons.ms","Run","Trial")]
+  
+  #mu_beta is the value of common stage
+  dfx$mu_beta_trx <- NA
+  dfx$value_stage <- NA
+  dfx$pe_planet_beta <- NA
+  alpha_comm = 1 
+  beta_rare = 1
+  for (i in 1:nrow(dfx)) {
+    if(!is.na(dfx$choice1[i])) {
+      dfx$mu_beta_trx[i]  = (alpha_comm / (alpha_comm+beta_rare));
+      if((as.character(dfx$Transition)=="Common")[i]) {
+        alpha_comm <- alpha_comm + 1
+        dfx$pe_planet_beta[i] <- 1 - dfx$mu_beta_trx[i]
+      } else {
+        beta_rare <- beta_rare + 1
+        dfx$pe_planet_beta[i] <- 0 - dfx$mu_beta_trx[i]
+      }
+    }
+  }
   
   
   
-  dfx_sp<-split(dfx,dfx$Block)
-  shark_dfx<-do.call(rbind,cleanuplist(lapply(dfx_sp,function(spx) {
-    sbj<-data.frame(onset=spx$stim1.ons.ms[1]/1000,
-                    duration=((spx$rew.ons.ms[length(spx$ID)]-spx$stim1.ons.ms[1])/1000),
-                    run=unique(spx$Run))
+  ###Maybe later try to model the missing trials? For now consider them noise and baseline them;
+  if(!no_mod) {
+    timing_s1<-timing_s1[which(!is.na(timing_s1$rts1)),]
+    timing_s1$nTrial<-ave(timing_s1$Run,timing_s1$Run,FUN = seq_along)
+    timing_s1$runXtrial <- paste0(timing_s1$Run,"_XTXTX_",timing_s1$Trial)
     
-    if(unique(spx$SharkBlock)==1) {sbj$type<-1} else {sbj$type<-(-1)}
-    return(sbj)
-  })))
-  shark_dfx$Trial<-rep(1:2,2)
+    timing_s2<-timing_s2[which(!is.na(timing_s2$rts2)),]
+    timing_s2$nTrial<-ave(timing_s2$Run,timing_s2$Run,FUN = seq_along)
+    timing_s2$runXtrial <- paste0(timing_s2$Run,"_XTXTX_",timing_s2$Trial)
+  } 
+  timing_ls <- list(s1 = timing_s1, s2 = timing_s2)
   
   finalist<-list(Decision1=data.frame(event="Decision1",
-                                      onset=dfx$stim1.ons.ms/1000,
-                                      duration=dfx$rts1,
-                                      run=dfx$Run,
-                                      trial=dfx$Trial),
-                 Onset2Dec2s=data.frame(event="Onset2Dec2s",
-                                        onset=dfx$stim2.ons.ms/1000,
-                                        duration=2,
-                                        run=dfx$Run,
-                                        trial=dfx$Trial),
+                                      onset=timing_s1$stim1.ons.ms/1000,
+                                      duration=timing_s1$rts1,
+                                      run=timing_s1$Run,
+                                      trial=timing_s1$nTrial),
+                 PlanetOnSet=data.frame(event="PlanetOnSet",
+                                              onset=timing_s1$stim2.ons.ms/1000,
+                                              duration=0.5,
+                                              run=timing_s1$Run,
+                                              trial=timing_s1$nTrial),
                  Decision2=data.frame(event="Decision2",
-                                      onset=dfx$stim2.ons.ms/1000,
-                                      duration=dfx$rts2,
-                                      run=dfx$Run,
-                                      trial=dfx$Trial),
+                                      onset=timing_s2$stim2.ons.ms/1000,
+                                      duration=timing_s2$rts2,
+                                      run=timing_s2$Run,
+                                      trial=timing_s2$nTrial),
                  Outcome=data.frame(event="Outcome",
-                                    onset=dfx$rew.ons.ms/1000,
-                                    duration=1.5,
-                                    run=dfx$Run,
-                                    trial=dfx$Trial),
-                 SharkBlock=data.frame(event="SharkBlock",
-                                       onset=shark_dfx$onset,
-                                       duration=shark_dfx$duration,
-                                       run=shark_dfx$run,
-                                       trial=shark_dfx$Trial),
-                 QC=data.frame(event="QC",
-                               onset=dfx$stim1.ons.ms/1000,
-                               duration=dfx$rts1,
-                               run=dfx$Run,
-                               trial=dfx$Trial)
+                                    onset=timing_s2$rew.ons.ms/1000,
+                                    duration=0.5,
+                                    run=timing_s2$Run,
+                                    trial=timing_s2$nTrial)
+                 # # SharkBlock=data.frame(event="SharkBlock",
+                 # #                       onset=shark_dfx$onset,
+                 # #                       duration=shark_dfx$duration,
+                 # #                       run=shark_dfx$run,
+                 # #                       trial=shark_dfx$Trial),
+                 # QC=data.frame(event="QC",
+                 #               onset=dfx$stim1.ons.ms/1000,
+                 #               duration=dfx$rts1,
+                 #               run=dfx$Run,
+                 #               trial=dfx$Trial)
   )
-  # for (i in 1:length(finalist)) {
-  #   if (i==1) {ktz<-finalist[[i]]} else {
-  #     ktz<-rbind(ktz,finalist[[i]])}
-  # }
-  # finalist[["allconcat"]]<-ktz
+  finalist[["allconcat"]]<-do.call(rbind,finalist)
   
   value<-as.list(dfx)
-  value$SharkBlockValue<-shark_dfx$type
+  
+  if(!no_mod) {
+    dfx$runXtrial <- paste0(dfx$Run,"_XTXTX_",dfx$Trial)
+    
+    for (i in which(!grepl("_evt",design_grid$valuefrom))) {
+      value[[design_grid$valuefrom[i]]] <- dfx[[design_grid$valuefrom[i]]][match(timing_ls[[design_grid$shark_stage[i]]]$runXtrial,dfx$runXtrial)]
+    }
+  }
+  
+  
+  # value$SharkBlockValue<-shark_dfx$type
   
   #Update version:
   sublvldfx<-unique(dfx[,names(dfx)[apply(dfx,2,function(x){length(unique(x))})==1]])
   
-  output<-list(event.list=finalist,output.df=dfx,value=value,
+  output<-list(event.list=finalist,output.df=dfx,value=value,ID=unique(dfx$ID),
                #Here's for the new version:
                sublevel=sublvldfx,triallvl=dfx
-               )
+  )
   return(output)
 }
 
@@ -532,22 +622,22 @@ shark_stan_prep<-function(shark_split=NULL,grpchoice="all"){
   }
   
   switch (grpchoice,
-    "all" = {
-      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
-      shark_stan$GroupNum<-3
-      },
-    "hc_dep" = {
-      shark_stan$Group[as.numeric(shark_stan$Group) > 1]<-2
-      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
-      shark_stan$GroupNum<-2
-    },
-    "hc_dep_sui" = {
-      shark_stan$Group[as.numeric(shark_stan$Group) > 2]<-3
-      shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
-      shark_stan$GroupNum<-3
-    }
+          "all" = {
+            shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+            shark_stan$GroupNum<-3
+          },
+          "hc_dep" = {
+            shark_stan$Group[as.numeric(shark_stan$Group) > 1]<-2
+            shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+            shark_stan$GroupNum<-2
+          },
+          "hc_dep_sui" = {
+            shark_stan$Group[as.numeric(shark_stan$Group) > 2]<-3
+            shark_stan$Group<-(as.numeric(as.factor(shark_stan$Group)))-1
+            shark_stan$GroupNum<-3
+          }
   )
-
+  
   return(shark_stan)
 }
 
@@ -565,21 +655,21 @@ run_shark_stan<-function(data_list=NULL,stanfile=NULL,modelname=NULL,stan_args="
   #Protect against new updates:
   if(is.null(stan_arg$data$factorizedecay)){is.null(stan_arg$data$factorizedecay)<-0}
   if(forcererun | !file.exists(file.path(savepath,paste0(modelname,".rdata")))){
-  templs<-list()
-  message("Start Running Stan Model...")
-  templs[["stanfit"]]<-do.call(stan,stan_arg)
-  message("Completed!")
-  templs[["data_list"]]<-data_list
-  templs[["extracted_fit"]]<-rstan::extract(object = templs[["stanfit"]])
-  save(list = c("stanfit","data_list","extracted_fit"),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
+    templs<-list()
+    message("Start Running Stan Model...")
+    templs[["stanfit"]]<-do.call(stan,stan_arg)
+    message("Completed!")
+    templs[["data_list"]]<-data_list
+    templs[["extracted_fit"]]<-rstan::extract(object = templs[["stanfit"]])
+    save(list = c("stanfit","data_list","extracted_fit"),file = file.path(savepath,paste0(modelname,".rdata")),envir =   as.environment(templs))
   } else if (!forcererun & !skipthis) {
     message("This model has been previously ran, and now will load it"); 
     tempenvir<-new.env(); load(file.path(savepath,paste0(modelname,".rdata")),envir = tempenvir)
     templs<-as.list(tempenvir)
   } else {message("This model has been skipped.")}
   if(!skipthis){
-  if(assignresult){assign(x = modelname,value = templs,envir = .GlobalEnv)}else{return(templs)}
-  if(open_shinystan){launch_shinystan(templs[[paste0("stanfit_",modelname)]])}
+    if(assignresult){assign(x = modelname,value = templs,envir = .GlobalEnv)}else{return(templs)}
+    if(open_shinystan){launch_shinystan(templs[[paste0("stanfit_",modelname)]])}
   }
 }
 
@@ -604,7 +694,7 @@ model_par_compar<-function(fit_list=NULL,data_list=NULL,pars=c("beta_1_MB","beta
 
 extract_pars<-function(stan_fitoutput=NULL,pars=c("log_lik"),mashdim=list(log_lik=c(1)),FUNC=mean,extracted_df=NULL){
   if(is.null(extracted_df)){
-  extracted_df<-extract(stan_fitoutput)
+    extracted_df<-extract(stan_fitoutput)
   }
   if(length(pars)>1) {
     tx<-lapply(pars,function(parx){
@@ -651,43 +741,43 @@ shark_initfun <- function() {
 }
 
 shark_mkinit <- function(chainnum,nS,transform=T) {
- lapply(1:chainnum,function(xc){
-   if(!transform){
-  list(
-     alpha_ddm_s1_m = 1.5,
-     alpha_ddm_s2_m = 1.5,
-     alpha_ddm_s1_s = 0.5,
-     alpha_ddm_s2_s = 0.5,
-     alpha_ddm_s1_raw = rep(0,nS),
-     alpha_ddm_s2_raw = rep(0,nS),
-     alpha_ddm_s1 = rep(0,nS),
-     
-     non_dec_s1_m = 0.2,
-     non_dec_s2_m = 0.2,
-     non_dec_s1_s = 0.1,
-     non_dec_s2_s = 0.1,
-     non_dec_s1_raw = rep(0,nS),
-     non_dec_s2_raw = rep(0,nS),
-     alpha_ddm_s2 = rep(0,nS)
-   )
-   }else {
-     list(
-       alpha_ddm_s1_m = 0.4054651,
-       alpha_ddm_s2_m = 0.4054651,
-       alpha_ddm_s1_s = -0.6931472,
-       alpha_ddm_s2_s = -0.6931472,
-       alpha_ddm_s1_raw = rep(0,nS),
-       alpha_ddm_s2_raw = rep(0,nS),
-       
-       non_dec_s1_m =  -1.609438,
-       non_dec_s2_m =  -1.609438,
-       non_dec_s1_s = -2.302585,
-       non_dec_s2_s = -2.302585,
-       non_dec_s1_raw = rep(0,nS),
-       non_dec_s2_raw = rep(0,nS)
-     )
-   }
- })
+  lapply(1:chainnum,function(xc){
+    if(!transform){
+      list(
+        alpha_ddm_s1_m = 1.5,
+        alpha_ddm_s2_m = 1.5,
+        alpha_ddm_s1_s = 0.5,
+        alpha_ddm_s2_s = 0.5,
+        alpha_ddm_s1_raw = rep(0,nS),
+        alpha_ddm_s2_raw = rep(0,nS),
+        alpha_ddm_s1 = rep(0,nS),
+        
+        non_dec_s1_m = 0.2,
+        non_dec_s2_m = 0.2,
+        non_dec_s1_s = 0.1,
+        non_dec_s2_s = 0.1,
+        non_dec_s1_raw = rep(0,nS),
+        non_dec_s2_raw = rep(0,nS),
+        alpha_ddm_s2 = rep(0,nS)
+      )
+    }else {
+      list(
+        alpha_ddm_s1_m = 0.4054651,
+        alpha_ddm_s2_m = 0.4054651,
+        alpha_ddm_s1_s = -0.6931472,
+        alpha_ddm_s2_s = -0.6931472,
+        alpha_ddm_s1_raw = rep(0,nS),
+        alpha_ddm_s2_raw = rep(0,nS),
+        
+        non_dec_s1_m =  -1.609438,
+        non_dec_s2_m =  -1.609438,
+        non_dec_s1_s = -2.302585,
+        non_dec_s2_s = -2.302585,
+        non_dec_s1_raw = rep(0,nS),
+        non_dec_s2_raw = rep(0,nS)
+      )
+    }
+  })
 }
 
 shark_getpar<-function(dx){
@@ -724,13 +814,13 @@ shark_prep_mulT<-function(sdf,tlag){
 }
 
 stan_ex_clean<-function(lsx=NULL,FUNCX=median){
-    if(length(dim(lsx))>1){
-      gx<-apply(lsx,2:length(dim(lsx)),FUNCX)
-    } else {
-      gx<-FUNCX(lsx)
-    }
-    gx[gx< (-990)]<-NA
-    return(gx)
+  if(length(dim(lsx))>1){
+    gx<-apply(lsx,2:length(dim(lsx)),FUNCX)
+  } else {
+    gx<-FUNCX(lsx)
+  }
+  gx[gx< (-990)]<-NA
+  return(gx)
 }
 
 colVars <- function (a){

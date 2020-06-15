@@ -6,7 +6,6 @@ library(lme4)
 library(lmerTest)
 library(ggplot2)
 library(reshape2)
-library(ggbiplot)
 library(corrplot)
 library(lsmeans)
 library(ggfortify)
@@ -20,39 +19,98 @@ library(stargazer)
 library(emmeans)
 
 ###################
-
+source("shark_utility.R")
+if(F){
+  #reloading the data use this sript:
+  source("./behavioral/shark_beh_analyses_import_process.R")
+}
 load(file = "shark_data.RData") 
+message("Number of subject before clean up: ",length(shark_data_proc))
+#First we should remove subject who have 
+o_miss_df <- do.call(rbind,lapply(shark_data_proc,shark_summarize,useable_vars=c("Missed","Outlier")))
+hist(o_miss_df$not_useable[o_miss_df$Type=="Overall"])
+ex_miss_ID<-o_miss_df$ID[o_miss_df$Type=="Overall" & o_miss_df$not_useable > 0.3]
+library(ggplot2)
+ggplot(o_miss_df,aes(x=not_useable))+geom_histogram()+facet_wrap(~Type)
 
+
+block_miss_df <- o_miss_df[grep("Block",o_miss_df$Type),]
+block_miss_df$Outliers <- block_miss_df$not_useable > 0.2
+
+ggplot(blcok_miss_df[block_miss_df$not_useable>0.05,],aes(x=Type,color=Type,y=not_useable))+
+  geom_boxplot()+geom_point(position = position_dodge2(width=0.3))
+
+ID_blocks_ex <- do.call(paste,block_miss_df[block_miss_df$Outliers,c("ID","Type")])
+subj_block_df <- aggregate(Outliers~ID,data = block_miss_df,FUN = function(x){length(which(x))/4})
+block_max_ex<-subj_block_df$ID[which(subj_block_df$Outliers > 0.5)]
+
+
+excludeIDs <- block_max_ex
+#shark_data_proc_exclude<-cleanuplist(lapply(shark_data_proc,shark_exclusion, missthres=0.2,P_staycomreinfchance=NA,comreinfstaythres=NA,returnstats=F))
+# shark_behav_qc_mo<-behav_qc_general(datalist=shark_data_proc,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),
+#                                     resp_var="keycode1",resp_toget="1",rt_var="rts1")
+# shark_behav_qc_ch<-behav_qc_general(datalist=shark_data_proc,p_name="shark",logic_sp=c("ifRare_lag","ifReinf_lag","Stay1"),
+#                                     resp_var="choice1",resp_toget="1",rt_var="rts1")
+
+
+
+
+#  excludeIDs<-unique(c(ex_miss_ID,shark_behav_qc_mo$ID[which(shark_behav_qc_mo$max_rep > 0.4)],
+#                       shark_behav_qc_ch$ID[which(shark_behav_qc_ch$max_rep >= 0.8)]))
+# 
+shark_data_proc_exclude<-shark_data_proc[which(!names(shark_data_proc) %in% excludeIDs)]
+shark_data_proc_exclude <- shark_data_proc_exclude
+message("Number of subject AFTER clean up: ",length(shark_data_proc_exclude))
+
+bdf <- merge(do.call(rbind,shark_data_proc_exclude),subject_df,by.x = "ID",by.y = "id",all.x = T)
+bdf <- bdf[which(!paste(bdf$ID,"Block",bdf$Block) %in% ID_blocks_ex),]
+#relevel 
+bdf$RewardType <- factor(bdf$RewardType,levels = c("Omission","Reward"))
+bdf$Transition <- factor(bdf$Transition,levels = c("Common","Rare"))
+bdf$GroupNEW <- factor(bdf$GroupNEW,c("HC","ATT","DNA_HI","DNA_LI"))
+bdf$GroupATT <- factor(bdf$GroupATT,c("HC","ATT","DEP","IDE","DNA"))
+#Set things to ignore:
+bdf$exclude_trial <- bdf$Outlier | bdf$Missed | as.logical(as.character(bdf$sharkattack))
+
+bdf_HC <- bdf[which(bdf$ID %in% as.character(subject_df$id[which(subject_df$Group == "HC")])),]
+
+rep_date <- "2018-09-14"
+message(length(as.character(subject_df$id[which(subject_df$scandate < rep_date)])))
+bdf_replicate <- bdf[which(bdf$ID %in% as.character(subject_df$id[which(subject_df$scandate < rep_date)])),]
+
+df_to_use <- bdf_replicate
+df_to_use$GroupATT<-droplevels(df_to_use$GroupATT)
+stop("Finished loading essentials")
 #Model task not working: #Let's hope that this is not:
 
-m0null<-glmer(ifSwitchedKey_lead ~ 
-                ifSwitchedKey +  ifRare * ifReinf * ifSharkBlock  +  
-                (ifReinf * ifRare | ID/Run),
-              family = binomial(),
-              data = bdf[!bdf$Outlier,],
-              glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
-summary(m0null)
-#Okay it seems like this is not true because they are either just guessing or the task is working somewhat
-
-#Now we test basic model with 
-
-
-
-# write factors for reward and transition with deviation coding
-bdf$rewardD <- bdf$RewardType
-contrasts(bdf$rewardD) = contr.sum(2)
-bdf$transitionD <- bdf$Transition
-contrasts(bdf$transitionD) = contr.sum(2)
-
-shark_basic <- lme4::glmer(Stay1_lead ~ Stay1 + SameKey1_lead + 
-                          Transition * RewardType  + 
+shark_basic <- lme4::glmer(Stay1_lead ~ RocketSwitch + 
+                             Transition * RewardType * BlockType +
+                             Transition * RewardType * GroupNEW + 
                           (1 | ID),
                         family = binomial(),
-                        data = bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack) ),],
+                        data = bdf[which(!bdf$exclude_trial),],
                         lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+
 summary(shark_basic)
 car::Anova(shark_basic, type = 'III')
-sjPlot::plot_model(shark_basic,type = "pred",terms=c("Transition","RewardType"))
+car::vif(shark_basic)
+sjPlot::plot_model(shark_basic,type = "pred",transform = NULL,terms=c("RocketSwitch","RewardType"))
+sjPlot::plot_model(shark_basic,type = "emm",terms=c("Transition","RewardType","GroupNEW"))
+emmeansx<-emmeans(shark_basic,specs= ~ RewardType*Transition|GroupNEW,
+                  data=bdf[which(!bdf$exclude_trial),])
+dfemmeans<-as.data.frame(emmeansx)
+ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) + 
+  geom_bar(stat = "identity",position = "dodge",color="black") +geom_errorbar(aes(
+    #lower = emmean - SE, 
+    #upper = emmean + SE, 
+    #middle = emmean, 
+    ymin = emmean - 2*SE, 
+    ymax = emmean + 2*SE),
+    stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~GroupNEW,ncol=2)
+
+
+
+
 
 shark_basic_hc <- lme4::glmer(Stay1_lead ~ Stay1 + Transition*RewardType*SameKey1_lead + 
                           Transition * RewardType * BlockType + 
@@ -112,7 +170,7 @@ a<-sjPlot::plot_model(shark_gm,type = "pred",terms = c("RewardType","Transition"
 
 ggsave(a,device = "pdf",filename = "choice_glmer.pdf",width = 6,height = 6)
 
-emmeansx<-emmeans(shark_gm,specs= ~ RewardType*Transition*BlockType|Group,
+emmeansx<-emmeans(shark_basic,specs= ~ RewardType*Transition*BlockType|Group,
                   data=bdf[which(!bdf$Missed & !as.logical(bdf$sharkattack)),],type = "response")
 dfemmeans<-as.data.frame(emmeansx)
 ggplot(data=dfemmeans, aes(x=RewardType, y=prob, fill=Transition)) + 
@@ -141,49 +199,31 @@ high_mb_hc<-rownames(shark_coef_hc)[which(shark_coef_hc$`RewardTypeNo Reward:Tra
 ###################
 
 #RT Models:
-rtshark1<-lmerTest::lmer(rts1_lead ~ rts1_scale + Stay1 + SameKey1_lead + 
-                        Transition * GroupNEW +
+rtshark1<-lmerTest::lmer(rts1_lead ~ scale(rts1) + RocketSwitch +
+                           Transition * RewardType  * GroupNEW + 
+                           Transition * RewardType  * BlockType + 
                        (1 | ID), REML = T,
-                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) ),])
-
-rtshark1_hc<-lmerTest::lmer(1/rts1_scale_lead ~ rts1_scale + Stay1 + SameKey1_lead + 
-                           Transition + RewardType +
-                           (1 | ID),REML = T,
-                         data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GroupNEW=="HC" ),])
-summary(rtshark1_hc)
-
-
-grx<-ggpredict(rtshark1,terms = c("Transition","RewardType","Group"),x.as.factor = T,type="fe")
-ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
-  lower = predicted - std.error, 
-  upper = predicted + std.error, 
-  middle = predicted, 
-  ymin = conf.low, 
-  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + 
-  facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
-
-grx<-ggpredict(rtshark1,terms = c("Transition","RewardType","BlockType"),x.as.factor = T,type="fe")
-ggplot(grx,aes(x,predicted,fill=group))+geom_boxplot(aes(
-  lower = predicted - std.error, 
-  upper = predicted + std.error, 
-  middle = predicted, 
-  ymin = conf.low, 
-  ymax = conf.high,fill=group),stat = "identity",position = "dodge") + 
-  facet_wrap(~facet) + scale_fill_manual(values=c("indianred3", "steelblue3"))
-
-
-
+                     data =  bdf[which(!bdf$exclude_trial),])
+summary(rtshark1)
+car::Anova(rtshark1,"III")
+sjPlot::plot_model(rtshark1,type = "pred",terms=c("GroupNEW","BlockType"))
+library(emmeans)
+emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition  ,
+                  data=df_to_use[which(!df_to_use$exclude_trial),])
+dfemmeans<-as.data.frame(emmeansx)
+ggplot(data=dfemmeans, aes(color=RewardType, y=emmean, x=Transition)) + geom_boxplot(aes(
+  lower = emmean - SE, 
+  upper = emmean + SE, 
+  middle = emmean, 
+  ymin = emmean - 3*SE, 
+  ymax = emmean + 3*SE),
+  stat = "identity") #+ facet_wrap(~BlockType,ncol = 2)
 
 
 
 
 summary(rtshark1)   
 car::Anova(rtshark1, type = 'III')
-sjPlot::plot_model(rtshark1_hc,type = "pred",terms=c("RewardType","Transition"))
-sjPlot::plot_model(rtshark1,type = "pred",terms=c("Transition","BlockType"))
-sjPlot::plot_model(rtshark1,type = "pred",terms=c("Transition","Group"))
-sjPlot::plot_model(rtshark1,type = "pred",terms=c("BlockType","RewardType","Transition"))
-sjPlot::plot_model(rtshark1,type = "pred",terms=c("RewardType","Transition","depress"))
 
 ggplot(bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),], aes(y = Transition,x=rts1_lead)) +
   geom_density_ridges(scale = 4) + theme_ridges() +
@@ -204,19 +244,19 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) +
     stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~depress+BlockType,ncol = 2)
 
 
+df_to_use <- bdf_HC
 
-rtshark2<-lmerTest::lmer(formula = (rts1_lead) ~ scale(rts1_scale) + Stay1 + SameKey1_lead + 
-                       # Transition * RewardType * GROUP1245 +
-                       # Transition * RewardType * BlockType +
-                       # Transition * GROUP1245 * BlockType +
-                       # RewardType * GROUP1245 * BlockType +
-                       (Transition + RewardType + BlockType + GroupNEW)^3 +   #Use for 4 ways
-                       (1 | ID),REML = F,
-                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
+rtshark2<-lmerTest::lmer(rts1_lead ~ rts1_scale + Stay1 + SameKey1_lead + 
+                       Transition * RewardType * BlockType + 
+                       (1 | ID),REML =T,
+                     data =  df_to_use[which(!df_to_use$exclude_trial),])
+summary(rtshark2)
+car::Anova(rtshark2,"III")
+sjPlot::plot_model(rtshark2,type = "pred",terms = c("RewardType","Transition"),
+                   se = F,show.values = T,pred.type = "fe")
 
 anova(rtshark1,rtshark2, type = 'III')
 
-summary(rtshark2)     
 
 car::Anova(rtshark1, type = 'III')
 coefs <- data.frame(coef(summary(rtshark1)))
@@ -224,28 +264,10 @@ coefs <- data.frame(coef(summary(rtshark1)))
 coefs$p.z <- round(2 * (1 - pnorm(abs(coefs$t.value))),3)
 coefs
 
-rtshark1_hc<-lme4::lmer(formula = 1/rts1_scale_lead ~ scale(rts1_scale) + scale(rts2_scale) + Stay1 + SameKey1_lead + 
-                       # Transition * RewardType * GROUP1245 +
-                       # Transition * RewardType * BlockType +
-                       # Transition * GROUP1245 * BlockType +
-                       # RewardType * GROUP1245 * BlockType +
-                      #  Transition * RewardType * GROUP1245 *BlockType +   #Use for 4 ways
-                       Transition * RewardType * BlockType +   #HC Model
-                       (1 | ID/Run),REML = F,
-                     data =  bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack) & bdf$GROUP1245==1),],
-                     control=lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-)
-summary(rtshark1_hc)                      
-car::Anova(rtshark1_hc, type = 'III')
-coefs <- data.frame(coef(summary(rtshark1_hc)))
-# use normal distribution to approximate p-value
-coefs$p.z <- round(2 * (1 - pnorm(abs(coefs$t.value))),3)
-coefs
 
 
-
-ggplot(data = bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),],
-       aes(y = rts1_lead,x=RewardType,color=Transition))+geom_boxplot()+facet_wrap(~Group+BlockType,ncol = 2)
+ggplot(data = df_to_use[which(!df_to_use$exclude_trial),],
+       aes(y = log(1/rts1_lead),x=RewardType,color=Transition))+geom_boxplot()+facet_wrap(~Group+BlockType,ncol = 2)
 
 
 # multicollinearity diagnostics
@@ -279,16 +301,7 @@ ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, fill=Transition)) +
   ymax = emmean + SE),
   stat = "identity",position=position_dodge(.9),width=.2) + facet_wrap(~BlockType,ncol = 2)
 
-emmeansx<-emmeans(rtshark1,  ~ RewardType*Transition*BlockType | GROUP1245 ,
-                  data=bdf[(!bdf$Outlier & !bdf$Missed & !as.logical(bdf$sharkattack)),])
-dfemmeans<-as.data.frame(emmeansx)
-ggplot(data=dfemmeans, aes(x=RewardType, y=emmean, color=Transition)) + geom_boxplot(aes(
-  lower = emmean - SE, 
-  upper = emmean + SE, 
-  middle = emmean, 
-  ymin = emmean - 3*SE, 
-  ymax = emmean + 3*SE),
-  stat = "identity") + facet_wrap(~GROUP1245+BlockType,ncol = 2)
+
 
 ggplot(data=dfemmeans, aes(x=RewardType, y=rts1_lead, color=Transition)) + geom_boxplot(aes(
   lower = emmean - SE, 

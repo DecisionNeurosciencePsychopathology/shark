@@ -1,4 +1,4 @@
-load("shark_data.RData")
+load("shark_rawdata.rdata")
 source("~/Documents/UPMC/RStation/Jiazhou.Startup.R")
 startup()
 masterdemo<-bsrc.checkdatabase2(ptcs$masterdemo,online = T,forceupdate = T,output = T,batch_size = 1000)
